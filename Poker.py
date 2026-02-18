@@ -3,13 +3,53 @@ import re
 import random
 from dataclasses import dataclass
 from typing import Optional
+import itertools
+from functools import lru_cache
+from pokerkit import Automation, NoLimitTexasHoldem
+from pokerkit.hands import StandardHighHand
 
-from pokerkit import Automation, NoLimitTexasHoldem, StandardHighHand
 
+# Metric Evaluation
+from dataclasses import dataclass
 
-# ----------------------------
+@dataclass
+class GameStats:
+    hands: int = 0
+    bot_wins: int = 0
+    bot_losses: int = 0
+    ties: int = 0
+
+    showdowns: int = 0
+    bot_should_win: int = 0
+    bot_should_lose: int = 0
+    should_tie: int = 0
+
+    # NEW: fold metrics
+    bot_folds: int = 0
+    bot_correct_folds_ev: int = 0
+    bot_folded_winner_runout: int = 0  # “folded to bluff” proxy
+
+    def print_summary(self):
+        print("\n================== SESSION STATS ==================")
+        print(f"Hands played: {self.hands}")
+        print(f"Bot wins (actual): {self.bot_wins}")
+        print(f"Bot losses (actual): {self.bot_losses}")
+        print(f"Ties (actual): {self.ties}")
+
+        if self.hands:
+            print(f"Bot win rate: {self.bot_wins / self.hands:.2%}")
+
+        print(f"\nHands with full board (showdown-able): {self.showdowns}")
+        print(f"Bot should-have-won (cards): {self.bot_should_win}")
+        print(f"Bot should-have-lost (cards): {self.bot_should_lose}")
+        print(f"Should-have-tied (cards): {self.should_tie}")
+
+        print(f"\nBot folds: {self.bot_folds}")
+        print(f"Bot correct folds (EV-based): {self.bot_correct_folds_ev}")
+        print(f"Bot folded winner (runout proxy): {self.bot_folded_winner_runout}")
+        print("====================================================\n")
 # Helpers: display / parsing
-# ----------------------------
+
 
 _RANK_NAME = {
     "2": "Two",
@@ -166,101 +206,194 @@ def _hole_codes_for_player(state, player_index: int):
 def _board_codes(state):
     return [_card_code(c) for c in (getattr(state, "board_cards", None) or [])]
 
-# quick made-hand detectors (very light-weight)
-def _counts_by_rank(codes):
-    d = {}
-    for c in codes:
-        r = _rank_of(c)
-        d[r] = d.get(r, 0) + 1
-    return d
 
-def _counts_by_suit(codes):
-    d = {}
-    for c in codes:
-        s = _suit_of(c)
-        d[s] = d.get(s, 0) + 1
-    return d
+import itertools
+from functools import lru_cache
 
-def _has_pair_or_better(hole_codes, board_codes):
-    """Return (best_made) where best_made in ('trips','two_pair','pair','none') from the player's perspective."""
-    codes = hole_codes + board_codes
-    rank_counts = _counts_by_rank(codes)
-    hole_rank_counts = _counts_by_rank(hole_codes)
-    # trips
-    if any(v >= 3 for v in rank_counts.values()):
-        return "trips"
-    # two pair: either two distinct ranks with count>=2 or hole pair + board pair
-    pairs = [r for r, v in rank_counts.items() if v >= 2]
-    if len(pairs) >= 2:
-        return "two_pair"
-    # pair: check if either hole card rank appears on board
-    for hr in hole_rank_counts:
-        if rank_counts.get(hr, 0) >= 2:
-            return "pair"
-    return "none"
+# Opponent Modeling Helpers
+# Assists monte carlo equity calculator by narrowing down possible hands opponent can have based on betting pressure
 
-def _has_top_pair_or_better(hole_codes, board_codes):
+def _combo_key(c1: str, c2: str) -> tuple[str, str]:
+    """Canonical ordering for 2-card combo codes like 'AS','KD'."""
+    return tuple(sorted([c1, c2]))
+
+def _preflop_strength_score(c1: str, c2: str) -> float:
     """
-    Heuristic: top pair if one of your hole ranks matches the highest-rank card on the board.
-    Returns True if top pair or better (two_pair/trips).
+    Heuristic score for a 2-card hand (higher is stronger).
+    Not perfect; good enough to build "tight vs loose" ranges.
     """
-    made = _has_pair_or_better(hole_codes, board_codes)
-    if made in ("trips", "two_pair"):
-        return True
-    if made == "pair":
-        # determine highest board rank
-        if not board_codes:
-            return False
-        board_vals = sorted((_value_of(c) for c in board_codes), reverse=True)
-        top_val = board_vals[0]
-        # if one of hole ranks equals top board rank -> top pair
-        for hc in hole_codes:
-            if _value_of(hc) == top_val:
-                return True
-    return False
+    r1, s1 = c1[0], c1[1]
+    r2, s2 = c2[0], c2[1]
+    v1 = _RANK_TO_VALUE[r1]
+    v2 = _RANK_TO_VALUE[r2]
+    hi, lo = max(v1, v2), min(v1, v2)
 
-def _has_flush_draw(hole_codes, board_codes):
-    """Return True if player has 4 cards to a flush (i.e., a flush draw)."""
-    codes = hole_codes + board_codes
-    suit_counts = _counts_by_suit(codes)
-    if any(v >= 4 for v in suit_counts.values()):
-        return True
-    return False
+    suited = (s1 == s2)
+    pair = (r1 == r2)
+    gap = abs(v1 - v2)
 
-def _is_suited(hole_codes):
-    return _suit_of(hole_codes[0]) == _suit_of(hole_codes[1])
+    score = 0.0
+    if pair:
+        # pairs are very strong, especially high
+        score += 100 + hi * 6
+    else:
+        # high cards matter a lot
+        score += hi * 4 + lo * 2
+        if suited:
+            score += 6
+        # connectors / one-gappers slightly better
+        if gap == 1:
+            score += 5
+        elif gap == 2:
+            score += 2
+        # broadway bonus
+        if hi >= 11 and lo >= 10:
+            score += 6
+        # ace bonus
+        if hi == 14:
+            score += 4
 
-def _is_pair(hole_codes):
-    return _rank_of(hole_codes[0]) == _rank_of(hole_codes[1])
+    return score
 
-def _is_connector(hole_codes, gap_allowed=1):
-    """Rough connector test: ranks adjacent or one-gap. gap_allowed=0 for exact connector."""
-    v0, v1 = _value_of(hole_codes[0]), _value_of(hole_codes[1])
-    g = abs(v0 - v1)
-    return g <= gap_allowed
+@lru_cache(maxsize=1)
+def _preflop_percentile_table():
+    """
+    Build percentile ranks for all unordered 2-card combos in a 52-card deck.
+    Returns dict: (c1,c2) -> percentile in [0,1], where 1.0 = strongest.
+    """
+    deck = [r + s for r in "23456789TJQKA" for s in "CDHS"]
+    combos = []
+    for i in range(len(deck)):
+        for j in range(i + 1, len(deck)):
+            c1, c2 = deck[i], deck[j]
+            score = _preflop_strength_score(c1, c2)
+            combos.append((score, _combo_key(c1, c2)))
+
+    combos.sort(key=lambda x: x[0])  # ascending by score
+    n = len(combos)
+    pct = {}
+    for idx, (_, key) in enumerate(combos):
+        # percentile: strongest near 1.0
+        pct[key] = (idx + 1) / n
+    return pct
+
+def _is_in_top_fraction(c1: str, c2: str, top_frac: float) -> bool:
+    """
+    True if combo is in top 'top_frac' fraction of hands according to percentile table.
+    Example: top_frac=0.20 means top 20% hands.
+    """
+    top_frac = max(0.01, min(1.0, top_frac))
+    pct = _preflop_percentile_table()
+    p = pct.get(_combo_key(c1, c2), 0.0)
+    return p >= (1.0 - top_frac)
 
 
 #================================================================
 # Helpers for bot's Monte Carlo Equity Calculations:
-
+# Improved Opponent Modeling (narrows range of opponents possible strong hands)
+# Samples top 15% of hands in equity simulations
 RANKS = "23456789TJQKA"
 SUITS = "CDHS"
 
 def _all_deck_codes():
     return [r + s for r in RANKS for s in SUITS]
 
-def _codes_to_str(codes) -> str:
-    out = []
-    for c in codes:
-        r = c[0].upper()
-        s = c[1].lower()  # evaluator examples use lowercase suits
-        out.append(r + s)
-    return "".join(out)
+def _codes_to_eval_str(codes) -> str:
+    # evaluator examples use lowercase suits, so normalize
+    return "".join(c[0].upper() + c[1].lower() for c in codes)
 
-def estimate_equity_vs_random(state, hero_index: int, trials, rng: random.Random | None = None) -> float:
+def determine_card_winner(player_hole_codes, bot_hole_codes, board_codes) -> str:
     """
-    Monte Carlo equity vs a random opponent range.
-    Equity = (wins + 0.5 * ties) / trials.
+    Returns: 'bot', 'player', or 'tie' based purely on final board + hole cards.
+    Requires board_codes to have 5 cards.
+    """
+    if len(board_codes) != 5:
+        return "tie"  # undefined without full board
+
+    player_hand = StandardHighHand.from_game(
+        _codes_to_eval_str(player_hole_codes),
+        _codes_to_eval_str(board_codes),
+    )
+    bot_hand = StandardHighHand.from_game(
+        _codes_to_eval_str(bot_hole_codes),
+        _codes_to_eval_str(board_codes),
+    )
+
+    if bot_hand > player_hand:
+        return "bot"
+    if bot_hand < player_hand:
+        return "player"
+    return "tie"
+
+def _remaining_deck_excluding(known_codes: set[str]) -> list[str]:
+    deck = [r + s for r in "23456789TJQKA" for s in "CDHS"]
+    return [c for c in deck if c not in known_codes]
+
+def _complete_board_random(board_codes: list[str], known_codes: set[str], rng: random.Random) -> list[str]:
+    """Fill board to 5 cards by sampling uniformly from remaining deck."""
+    need = 5 - len(board_codes)
+    if need <= 0:
+        return board_codes[:5]
+    deck = _remaining_deck_excluding(known_codes)
+    rng.shuffle(deck)
+    return board_codes + deck[:need]
+
+def estimate_equity_vs_known_hand(
+    hero_hole_codes: list[str],
+    villain_hole_codes: list[str],
+    board_codes: list[str],
+    trials: int = 3000,
+    rng: random.Random | None = None,
+) -> float:
+    """
+    Monte Carlo equity against opponent's ACTUAL hole cards.
+    Only samples remaining board cards.
+    """
+    if rng is None:
+        rng = random
+
+    wins = ties = 0
+    hero_s = _codes_to_eval_str(hero_hole_codes)
+    vil_s = _codes_to_eval_str(villain_hole_codes)
+
+    known = set(hero_hole_codes + villain_hole_codes + board_codes)
+
+    for _ in range(trials):
+        full_board = _complete_board_random(board_codes, known, rng)
+        board_s = _codes_to_eval_str(full_board)
+
+        hero_hand = StandardHighHand.from_game(hero_s, board_s)
+        vil_hand = StandardHighHand.from_game(vil_s, board_s)
+
+        if hero_hand > vil_hand:
+            wins += 1
+        elif hero_hand == vil_hand:
+            ties += 1
+
+    return (wins + 0.5 * ties) / trials
+
+def winner_on_one_random_runout(player_codes: list[str], bot_codes: list[str], board_codes: list[str], rng: random.Random) -> str:
+    """Returns 'bot'/'player'/'tie' by completing board once randomly and comparing actual hands."""
+    known = set(player_codes + bot_codes + board_codes)
+    full_board = _complete_board_random(board_codes, known, rng)
+    return determine_card_winner(player_codes, bot_codes, full_board)
+
+
+def estimate_equity_vs_range(
+    state,
+    hero_index: int,
+    *,
+    trials: int = 2000,
+    villain_top_frac: float = 0.50,
+    rng: random.Random | None = None,
+) -> float:
+    """
+    Monte Carlo equity where villain hole cards are sampled from a 'top X%' range.
+
+    villain_top_frac:
+      1.00 = uniform random (everyone plays everything)
+      0.20 = villain has top 20% hands (tight/strong)
+      0.10 = top 10% hands (very strong line)
     """
     if rng is None:
         rng = random
@@ -272,31 +405,111 @@ def estimate_equity_vs_random(state, hero_index: int, trials, rng: random.Random
     deck = [c for c in _all_deck_codes() if c not in known]
 
     need_board = max(0, 5 - len(board))
+    hero_hole_s = _codes_to_eval_str(hero_hole)
 
     wins = ties = 0
 
-    hero_hole_s = _codes_to_str(hero_hole)  # constant across trials
+    # To avoid rare infinite loops when range is too tight + cards removed,
+    # cap attempts at finding a villain hand in-range.
+    max_pick_attempts = 40
 
     for _ in range(trials):
-        sample = deck[:]           # copy
+        sample = deck[:]
         rng.shuffle(sample)
 
-        opp_hole = sample[:2]
-        fill = sample[2:2 + need_board]
+        # --- Pick villain hole from range ---
+        villain_hole = None
+        # try a few random pairs from the shuffled sample
+        # (fast enough for now; optimize later if needed)
+        for t in range(max_pick_attempts):
+            c1 = sample[(2 * t) % len(sample)]
+            c2 = sample[(2 * t + 1) % len(sample)]
+            if c1 == c2:
+                continue
+            if _is_in_top_fraction(c1, c2, villain_top_frac):
+                villain_hole = [c1, c2]
+                break
+
+        # fallback: if we couldn't find an in-range hand (too tight),
+        # just take the first two available.
+        if villain_hole is None:
+            villain_hole = sample[:2]
+
+        # remove villain hole from availability for board fill
+        remaining = [c for c in sample if c not in villain_hole]
+
+        fill = remaining[:need_board]
         full_board = board + fill
 
-        opp_hole_s = _codes_to_str(opp_hole)
-        board_s = _codes_to_str(full_board)
+        villain_hole_s = _codes_to_eval_str(villain_hole)
+        board_s = _codes_to_eval_str(full_board)
 
         hero_hand = StandardHighHand.from_game(hero_hole_s, board_s)
-        opp_hand = StandardHighHand.from_game(opp_hole_s, board_s)
+        vil_hand = StandardHighHand.from_game(villain_hole_s, board_s)
 
-        if hero_hand > opp_hand:
+        if hero_hand > vil_hand:
             wins += 1
-        elif hero_hand == opp_hand:
+        elif hero_hand == vil_hand:
             ties += 1
 
     return (wins + 0.5 * ties) / trials
+
+# Fold Equity Modeling
+
+def estimate_villain_top_frac(board_len: int, required_eq: float, cca: int, pot: int) -> float:
+    """
+    Opponent modeling heuristic:
+    Use betting pressure to infer villain range strength/tightness.
+
+    Returns villain_top_frac:
+      0.15 => villain likely strong/tight range (top 15%)
+      0.60 => villain wider/weaker range (top 60%)
+    """
+    # pressure: call cost relative to pot
+    pressure = cca / (pot + cca) if (pot + cca) > 0 else 0.0
+
+    # baseline by street: later streets tend to be narrower when money goes in
+    base = {0: 0.55, 3: 0.45, 4: 0.40, 5: 0.35}.get(board_len, 0.50)
+
+    # tighten with pressure
+    # bigger pressure => smaller top_frac (stronger range)
+    top_frac = base - 0.60 * pressure
+
+    # clamp
+    return max(0.10, min(0.70, top_frac))
+
+def estimate_fold_probability(villain_top_frac: float, raise_to: int, pot: int) -> float:
+    """
+    Fold equity model:
+    - tighter villain ranges call more (lower fold prob)
+    - bigger raises win more folds (higher fold prob)
+
+    Returns fold probability in [0.05, 0.75].
+    """
+    # tighter range => less folding
+    tightness = 1.0 - villain_top_frac  # e.g. top 0.15 => tightness 0.85
+
+    # raise pressure relative to pot
+    r = raise_to / max(1, pot)
+    size_term = min(1.0, 0.35 * r)  # bigger raises increase folds
+
+    # base fold depends on opponent looseness + size
+    # loose villain (top_frac high) folds more; tight villain folds less.
+    base = 0.40 * villain_top_frac + 0.10  # 0.10..0.38
+
+    fold_p = base + size_term - 0.25 * tightness
+    return max(0.05, min(0.75, fold_p))
+
+def ev_of_raise(eq_when_called: float, fold_p: float, pot: int, invest: int) -> float:
+    """
+    Simplified EV model for a raise:
+    - With prob fold_p, we win current pot.
+    - With prob 1-fold_p, we go to showdown with equity eq_when_called,
+      in a pot approx pot + 2*invest (we put in invest; villain calls invest).
+    - Cost to us: invest (this is approximate; good enough to drive behavior).
+    """
+    pot_if_called = pot + 2 * invest
+    return fold_p * pot + (1.0 - fold_p) * (eq_when_called * pot_if_called - (1.0 - eq_when_called) * invest)
 
 # Bot policy ========================================================
 
@@ -319,16 +532,21 @@ class BotParams:
     jam_freq: float = 0.10           # chance to jam when jam_equity met (and jam is legal)
 
 
+"""""
+bot acts off of monte carlo equity in conjuction with opponent modeling
+which narrows the range of cards that the algorithim will simulate when calculating equity
+Rather than sampling uniformly from unseen cards, the algorithim will sample from the top X percentage of hands,
+where X fluctuates based on call amount in relation to pot, and the current street
+(more pressure == stronger villain -> equity drops)
 
+Fold equity allows bot to now raise even if equity (chances of winning with current hand) are weaker than desired)
+
+"""""
 def choose_bot_action(state, params: BotParams) -> tuple[str, Optional[int]]:
-    
-    #Equity-driven bot using Monte Carlo vs a random opponent.
-
     actor = getattr(state, "actor_index", None)
     if actor is None:
         return ("c", None)
 
-    # --- legality / betting bounds ---
     can_call = state.can_check_or_call()
     can_fold = state.can_fold()
 
@@ -338,10 +556,10 @@ def choose_bot_action(state, params: BotParams) -> tuple[str, Optional[int]]:
         min_to is not None
         and max_to is not None
         and min_to <= max_to
-        and state.can_complete_bet_or_raise_to(min_to)
+        and state.can_complete_bet_or_raise_to(int(min_to))
     )
 
-    # Call/check amount (read BEFORE acting)
+    # call amount BEFORE acting
     cca = getattr(state, "checking_or_calling_amount", None)
     if cca is None:
         cca = getattr(state, "check_or_call_amount", None)
@@ -353,10 +571,13 @@ def choose_bot_action(state, params: BotParams) -> tuple[str, Optional[int]]:
     pot = 0 if pot is None else int(pot)
 
     my_stack = int(state.stacks[actor])
-
-    # --- Monte Carlo equity ---
-    # fewer trials preflop / earlier for speed, more later for accuracy
     board_len = len(_board_codes(state))
+
+    # --- Decide how tight villain range is based on pressure ---
+    required_eq = cca / (pot + cca) if (pot + cca) > 0 else 1.0
+    villain_top_frac = estimate_villain_top_frac(board_len, required_eq, cca, pot)
+
+    # --- Monte Carlo equity vs inferred range ---
     if board_len == 0:
         trials = 1200
     elif board_len == 3:
@@ -364,7 +585,12 @@ def choose_bot_action(state, params: BotParams) -> tuple[str, Optional[int]]:
     else:
         trials = 3000
 
-    eq = estimate_equity_vs_random(state, actor, trials=trials)
+    eq = estimate_equity_vs_range(
+        state,
+        actor,
+        trials=trials,
+        villain_top_frac=villain_top_frac,
+    )
 
     # --- helper sizing ---
     def small_raise_to():
@@ -373,7 +599,6 @@ def choose_bot_action(state, params: BotParams) -> tuple[str, Optional[int]]:
         return None
 
     def big_raise_to(frac_of_stack: float):
-        """Raise-to target as a fraction of our remaining stack, clamped to [min_to, max_to]."""
         if not can_raise or min_to is None or max_to is None:
             return None
         target = int(my_stack * frac_of_stack)
@@ -381,57 +606,57 @@ def choose_bot_action(state, params: BotParams) -> tuple[str, Optional[int]]:
         amt = min(int(max_to), amt)
         if state.can_complete_bet_or_raise_to(amt):
             return amt
-        # fallback
-        sr = small_raise_to()
-        return sr
+        return small_raise_to()
 
-    # --- Decision logic ---
-
-    # If bot can check for free, mostly check; sometimes bet when strong
+    # Decision Logic
+  
+    # Free check spots: bet sometimes when strong
     if cca == 0 and can_call:
-        if eq >= 0.62 and can_raise and random.random() < params.value_raise_freq:
+        if can_raise and eq >= 0.62 and random.random() < params.value_raise_freq:
             amt = big_raise_to(params.value_raise_frac) or small_raise_to()
             if amt is not None:
                 return ("r", amt)
-        return ("c", None)  # check
+        return ("c", None)
 
-    # Facing a bet: pot odds
-    required_eq = cca / (pot + cca) if (pot + cca) > 0 else 1.0
-
-    # 1) Value raise when strong
-    if eq >= max(0.70, required_eq + 0.12) and can_raise:
+    # Value raise when clearly strong
+    if can_raise and eq >= max(0.70, required_eq + 0.12):
         # occasional jam
         if eq >= params.jam_equity and random.random() < params.jam_freq:
             if max_to is not None and state.can_complete_bet_or_raise_to(int(max_to)):
                 return ("a", None)
 
-        # raise with some frequency, otherwise call
         if random.random() < params.value_raise_freq:
             amt = big_raise_to(params.value_raise_frac) or small_raise_to()
             if amt is not None:
                 return ("r", amt)
 
-        if can_call:
+        # otherwise call if +EV
+        if can_call and eq >= required_eq + params.call_edge:
             return ("c", None)
 
-    # 2) Call if +EV with cushion
+    # Call if +EV with cushion
     if can_call and eq >= required_eq + params.call_edge:
         return ("c", None)
 
-    # 3) Bluff occasionally (only if the required equity isn't huge)
+    # --- Bluff / semi-bluff using fold equity modeling ---
     if can_raise and random.random() < params.bluff_freq:
-        if required_eq <= (0.33 + params.bluff_additional_risk):
+        # Don't bluff into extremely strong lines (very tight range)
+        if villain_top_frac >= 0.18:  # looser than top 18% -> can fold more
             amt = big_raise_to(params.bluff_raise_frac) or small_raise_to()
             if amt is not None:
-                return ("r", amt)
+                fold_p = estimate_fold_probability(villain_top_frac, raise_to=amt, pot=pot)
+                # approximate invest as raise_to amount (good enough for decision ranking)
+                invest = amt
+                # EV(raise) compared to EV(fold)=0 baseline
+                evr = ev_of_raise(eq_when_called=eq, fold_p=fold_p, pot=pot, invest=invest)
+                if evr > 0:
+                    return ("r", amt)
 
-    # 4) Otherwise fold/check
-    if can_fold and cca > 0:
+    # Otherwise fold if facing a bet
+    if can_fold:
         return ("f", None)
-    if can_call:
-        return ("c", None)
-    return ("f", None)
 
+    return ("c", None) if can_call else ("f", None)
 
 # Game Logic ========================================================
 
@@ -475,6 +700,11 @@ def play_one_hand(
 
     player_hole = tuple(state.hole_cards[0])
     bot_hole = tuple(state.hole_cards[1])
+
+    bot_folded = False
+    bot_fold_board_codes = []
+    bot_fold_pot = 0
+    bot_fold_call = 0
 
     print("\n" + "=" * 60)
     print("New hand!")
@@ -557,12 +787,33 @@ def play_one_hand(
         else:
             act, amt = choose_bot_action(state, bot_params)
             if act == "f" and state.can_fold():
+                # capture fold context BEFORE folding
+                bot_folded = True
+                bot_fold_board_codes = _board_codes(state)
+
+                bot_fold_pot = int(getattr(state, "total_pot_amount", 0) or 0)
+
+                cca2 = getattr(state, "checking_or_calling_amount", None)
+                if cca2 is None:
+                    cca2 = getattr(state, "check_or_call_amount", None)
+                if cca2 is None:
+                    cca2 = getattr(state, "calling_amount", None)
+                bot_fold_call = int(cca2 or 0)
+
                 state.fold()
                 print("\nBot folds.")
+
             elif act == "c" and state.can_check_or_call():
                 cca = getattr(state, "checking_or_calling_amount", None)
+                if cca is None:
+                    cca = getattr(state, "check_or_call_amount", None)
+                if cca is None:
+                    cca = getattr(state, "calling_amount", None)
+                cca = 0 if cca is None else int(cca)
+
                 state.check_or_call()
-                print("\nBot checks." if (cca is None or cca == 0) else f"\nBot calls {cca}.")
+                print("\nBot checks." if cca == 0 else f"\nBot calls {cca}.")
+
             elif act == "a":
                 max_to = getattr(state, "max_completion_betting_or_raising_to_amount", None)
                 if max_to is not None and state.can_complete_bet_or_raise_to(max_to):
@@ -581,11 +832,11 @@ def play_one_hand(
                 else:
                     state.fold()
                     print("\nBot folds (fallback).")
-            
-
+    
     ending_stacks = (int(state.stacks[0]), int(state.stacks[1]))
+    bot_delta = ending_stacks[1] - starting_stacks[1]
     delta = ending_stacks[0] - starting_stacks[0]
-
+        
     if delta > 0:
         outcome = f"You WON the hand (+{delta})."
     elif delta < 0:
@@ -601,7 +852,14 @@ def play_one_hand(
     print(_stacks_str(state))
     print(outcome)
 
-    return (int(state.stacks[0]), int(state.stacks[1]))
+    board_codes_end = _board_codes(state)
+    player_codes = _hole_codes_for_player(state, 0)
+    bot_codes = _hole_codes_for_player(state, 1)
+
+    fold_info = (bot_folded, bot_fold_board_codes, bot_fold_pot, bot_fold_call)
+
+    return (ending_stacks, bot_delta, board_codes_end, player_codes, bot_codes, fold_info)
+
 def main() -> None:
     print("PokerKit: Heads-Up No Limit Hold 'Em — You vs Bot")
 
@@ -609,20 +867,79 @@ def main() -> None:
     sb, bb, min_bet = 50, 100, 100
 
     bot_params = BotParams()
+    stats = GameStats()
 
     while True:
-        stacks = play_one_hand(stacks, sb=sb, bb=bb, min_bet=min_bet, bot_params=bot_params)
+        
+        (stacks, bot_delta, board_codes, player_codes, bot_codes, fold_info) = play_one_hand(
+        stacks, sb=sb, bb=bb, min_bet=min_bet, bot_params=bot_params) 
+
+        (bot_folded, fold_board, fold_pot, fold_call) = fold_info
+
+        # ---- update stats ----
+        stats.hands += 1
+
+        # Actual winner (by chip delta)
+        if bot_delta > 0:
+            stats.bot_wins += 1
+        elif bot_delta < 0:
+            stats.bot_losses += 1
+        else:
+            stats.ties += 1
+
+        # "Should have won" (by cards), only if board completed
+        if len(board_codes) == 5:
+            stats.showdowns += 1
+            should = determine_card_winner(player_codes, bot_codes, board_codes)
+            if should == "bot":
+                stats.bot_should_win += 1
+            elif should == "player":
+                stats.bot_should_lose += 1
+            else:
+                stats.should_tie += 1
+        if bot_folded:
+            stats.bot_folds += 1
+
+            # required equity to call (pot odds)
+            required_eq = (fold_call / (fold_pot + fold_call)) if (fold_pot + fold_call) > 0 else 1.0
+
+            # equity vs your *actual* hand at fold time (simulate remaining board only)
+            eq_vs_actual = estimate_equity_vs_known_hand(
+                hero_hole_codes=bot_codes,          # bot hole cards
+                villain_hole_codes=player_codes,    # your hole cards
+                board_codes=fold_board,             # board at fold time (0/3/4/5 cards)
+                trials=2500,
+            )
+
+            # If equity wasn't enough to justify calling, fold is correct (EV-based)
+            if eq_vs_actual < required_eq + bot_params.call_edge:
+                stats.bot_correct_folds_ev += 1
+
+            # “folded to bluff” proxy: random runout once
+            rng = random.Random(stats.hands * 99991 + 17)
+            runout_winner = winner_on_one_random_runout(player_codes, bot_codes, fold_board, rng)
+
+            if runout_winner == "bot":
+                stats.bot_folded_winner_runout += 1
+
+        # Print summary after each hand (or comment this out and print only at end)
+        stats.print_summary()
 
         if stacks[0] <= 0:
             print("\nYou lost it all. Game over.")
+            stats.print_summary()
             return
         if stacks[1] <= 0:
             print("\nBot is broke. You win!")
+            stats.print_summary()
             return
 
         s = input("\nPlay another hand? (y/n): ").strip().lower()
         if s != "y":
+            stats.print_summary()
             return
+
+        
 
 
 if __name__ == "__main__":
