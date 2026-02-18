@@ -9,9 +9,6 @@ from pokerkit import Automation, NoLimitTexasHoldem
 from pokerkit.hands import StandardHighHand
 
 
-# Metric Evaluation
-from dataclasses import dataclass
-
 @dataclass
 class GameStats:
     hands: int = 0
