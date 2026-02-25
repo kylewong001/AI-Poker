@@ -16,6 +16,10 @@ To run this code ensure you have installed PokerKit (pip install PokerKit)
 
 Sources:
 https://github.com/uoftcprg/pokerkit
+**Opponent Modeling**: PokerTracker/Hold'em Manager aggression index metrics; adaptive poker theory
+**Stack Depth Strategy**: Push/fold equilibrium (Jehu Baker et al.); ICM (Independent Chip Model); standard tournament poker theory
+**Fold Equity**: Fedor Holz, Daniel Negreanu - positional aggression; bankroll management literature
+**Monte Carlo Methods**: Equilibrium Poker research; computational game theory
 
 
 Updates: 
@@ -42,3 +46,90 @@ The new function estimate_fold_probability(villian_top_frac, raise_to, pot) allo
 
 Improvements:
 The bot will now sample from an inferred range of top hands utilizing the betting pressure of the opponent. THe range will also tighten as a result of what street the game is currently on. The bot also no longer assumes the opponent will always call, and sees the player folding as a way of winning. With this, the bot will now raise based on the probability of the opponent folding. The bot can now be more aggressive and bluff even if the equity is not as high.
+
+==========================================================
+(2/18 - 2/25)
+
+Bot Logic:
+Major refactoring and new opponent modeling features have been added.
+
+
+Opponent History Tracking:
+The bot now maintains an `OpponentProfile` that tracks opponent tendencies across sessions:
+- **Aggression Index (AF)**: `(bets + raises) / calls` ratio indicating opponent's aggression level
+- **Fold-to-Raise Frequency**: Tracked separately for preflop and postflop by street
+- **Showdown Hands**: Records all hands opponent showed down for future analysis
+- These stats directly influence the bot's `estimate_villain_top_frac()` and fold probability calculations
+
+Stack Depth Awareness:
+The bot now adapts strategy based on effective stack depth (in big blinds):
+- **Deep Stacks (50+ BB)**: Widens opponent's range; bot plays more hands with implied odds potential
+- **Medium Stacks (15-50 BB)**: Neutral strategy; standard GTO-based decisions
+- **Short Stacks (<15 BB)**: Tightens to push/fold territory; bot uses `0.40 equity threshold` for all-in decisions
+- Dynamic range adjustment via `adjust_range_for_stack_depth()` function
+
+Improvements:
+Bot now adapts to both opponent tendencies AND stack dynamics. Opponent tracking enables the bot to exploit tight/loose players. Stack depth awareness prevents poor decisions in late stages (ex. calling too wide when short, not using pressure when deep). This combination significantly improves win rate in varied game situations.
+
+==========================================================
+(2/25)
+
+Performance Metrics & Tracking:
+
+New metrics have been added to `GameStats` for comprehensive bot performance evaluation:
+
+**Primary Metrics:**
+- **BB/100 Hands**: Big blinds won per 100 hands (industry standard poker metric)
+- **ROI (Return on Investment)**: `(Profit / Buy-in) × 100%` - shows capital efficiency
+- **Win Rate**: Percentage of hands won
+- **Profit per Hand**: Average chips gained/lost per hand
+- **Variance & Std Dev**: Measure of result stability across hands
+- **95% Confidence Interval**: Statistical reliability of win rate
+
+**Secondary Metrics:**
+- Showdown win % (what fraction of hands won at showdown)
+- Bluff success rate (folds induced divided by bluffs attempted)
+- Correct fold % (EV-based fold accuracy)
+- "Folded winner" tracking (hands that would have won if not folded)
+
+**Implementation:**
+The `GameStats` class now tracks:
+- `total_profit`: Cumulative chip changes
+- `hand_profits`: Per-hand profit/loss for variance calculation
+- `calculate_*()` methods: Automatically compute all metrics
+
+Each session now displays a formatted stats summary with all metrics after each hand, allowing real-time monitoring of bot performance.
+
+Example Output:
+```
+============================================================
+POKER BOT SESSION STATS
+============================================================
+
+Hands played: 250
+Bot wins (actual): 142
+Bot losses (actual): 103
+Ties (actual): 5
+
+PROFITABILITY METRICS
+Total profit/loss: +1,250 chips
+Win rate: 56.8%
+BB/100 hands: +1.25
+ROI: +12.5%
+Profit per hand: +5.0 chips
+
+VARIANCE METRICS
+Std deviation: ±87.3 chips
+95% Confidence Interval: [+2.4, +7.6] chips/hand
+============================================================
+```
+
+These metrics enable objective evaluation of bot improvements over time.
+
+Sources Referenced:
+- **Opponent Modeling**: PokerTracker/Hold'em Manager aggression index metrics; adaptive poker theory
+- **Stack Depth Strategy**: Push/fold equilibrium (Jehu Baker et al.); ICM (Independent Chip Model); standard tournament poker theory
+- **Fold Equity**: Fedor Holz, Daniel Negreanu - positional aggression; bankroll management literature
+- **Monte Carlo Methods**: Equilibrium Poker research; computational game theory
+- **Performance Metrics**: Professional poker statistics (Upswing Poker, Run It Once)
+
