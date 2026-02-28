@@ -1,0 +1,157 @@
+================================================================================
+BOT PERFORMANCE BENCHMARK - 2026-02-24 13:25:19
+================================================================================
+
+
+================================================================================
+BOT BENCHMARK REPORT vs TIGHT OPPONENT
+================================================================================
+
+Sample Size: 50 hands requested, 50 hands completed
+
+                                 PROFITABILITY                                  
+--------------------------------------------------------------------------------
+Total Profit/Loss: -9,973 chips
+Win Rate: 12.0%
+BB/100: -99.73 ((Profit / blind-size) / number of hands) * 100
+ROI: -99.7%
+Profit per Hand: -199.5 chips
+
+                                  HAND RESULTS                                  
+--------------------------------------------------------------------------------
+Wins: 6 (12.0%)
+Losses: 8 (16.0%)
+Ties: 36 (72.0%)
+
+                                VARIANCE METRICS                                
+--------------------------------------------------------------------------------
+Std Deviation: +1296.1 chips (variation in profit/loss per hand)
+95% CI: [-558.7, +159.8] chips/hand 
+(95% confident that after numerous trials, the bot's profit per hand falls between this range)
+
+                               SHOWDOWN ANALYSIS                                
+--------------------------------------------------------------------------------
+Showdowns: 18 (36.0%)
+Should-have-won: 6 (33.3%)
+Should-have-lost: 7 (38.9%)
+Should-have-tied: 5 (27.8%)
+
+                                 FOLD ANALYSIS                                  
+--------------------------------------------------------------------------------
+Bot folds: 2 (4.0%)
+Correct folds (EV): 2 (100.0%)
+Folded winner: 0 (0.0%)
+
+================================================================================
+BOT BENCHMARK REPORT vs BALANCED OPPONENT
+================================================================================
+
+Sample Size: 50 hands requested, 12 hands completed
+
+                                 PROFITABILITY                                  
+--------------------------------------------------------------------------------
+Total Profit/Loss: +10,000 chips
+Win Rate: 41.7%
+BB/100: +100.00
+ROI: +100.0%
+Profit per Hand: +833.3 chips
+
+                                  HAND RESULTS                                  
+--------------------------------------------------------------------------------
+Wins: 5 (41.7%)
+Losses: 7 (58.3%)
+Ties: 0 (0.0%)
+
+                                VARIANCE METRICS                                
+--------------------------------------------------------------------------------
+Std Deviation: +2840.1 chips
+95% CI: Insufficient data (need 30+ hands, have 12)
+
+                               SHOWDOWN ANALYSIS                                
+--------------------------------------------------------------------------------
+Showdowns: 9 (75.0%)
+Should-have-won: 5 (55.6%)
+Should-have-lost: 3 (33.3%)
+Should-have-tied: 1 (11.1%)
+
+                                 FOLD ANALYSIS                                  
+--------------------------------------------------------------------------------
+Bot folds: 5 (41.7%)
+Correct folds (EV): 4 (80.0%)
+Folded winner: 0 (0.0%)
+
+================================================================================
+BOT BENCHMARK REPORT vs LOOSE OPPONENT
+================================================================================
+
+Sample Size: 50 hands requested, 6 hands completed
+
+                                 PROFITABILITY                                  
+--------------------------------------------------------------------------------
+Total Profit/Loss: +10,000 chips
+Win Rate: 50.0%
+BB/100: +100.00
+ROI: +100.0%
+Profit per Hand: +1666.7 chips
+
+                                  HAND RESULTS                                  
+--------------------------------------------------------------------------------
+Wins: 3 (50.0%)
+Losses: 3 (50.0%)
+Ties: 0 (0.0%)
+
+                                VARIANCE METRICS                                
+--------------------------------------------------------------------------------
+Std Deviation: +3608.4 chips
+95% CI: Insufficient data (need 30+ hands, have 6)
+
+                               SHOWDOWN ANALYSIS                                
+--------------------------------------------------------------------------------
+Showdowns: 4 (66.7%)
+Should-have-won: 3 (75.0%)
+Should-have-lost: 1 (25.0%)
+Should-have-tied: 0 (0.0%)
+
+                                 FOLD ANALYSIS                                  
+--------------------------------------------------------------------------------
+Bot folds: 2 (33.3%)
+Correct folds (EV): 2 (100.0%)
+Folded winner: 0 (0.0%)
+
+================================================================================
+BOT BENCHMARK REPORT vs AGGRESSIVE OPPONENT
+================================================================================
+
+Sample Size: 50 hands requested, 14 hands completed
+
+                                 PROFITABILITY                                  
+--------------------------------------------------------------------------------
+Total Profit/Loss: +10,000 chips
+Win Rate: 21.4%
+BB/100: +100.00
+ROI: +100.0%
+Profit per Hand: +714.3 chips
+
+                                  HAND RESULTS                                  
+--------------------------------------------------------------------------------
+Wins: 3 (21.4%)
+Losses: 11 (78.6%)
+Ties: 0 (0.0%)
+
+                                VARIANCE METRICS                                
+--------------------------------------------------------------------------------
+Std Deviation: +2387.4 chips
+95% CI: Insufficient data (need 30+ hands, have 14)
+
+                               SHOWDOWN ANALYSIS                                
+--------------------------------------------------------------------------------
+Showdowns: 7 (50.0%)
+Should-have-won: 3 (42.9%)
+Should-have-lost: 4 (57.1%)
+Should-have-tied: 0 (0.0%)
+
+                                 FOLD ANALYSIS                                  
+--------------------------------------------------------------------------------
+Bot folds: 7 (50.0%)
+Correct folds (EV): 6 (85.7%)
+Folded winner: 0 (0.0%)
