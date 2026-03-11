@@ -131,7 +131,7 @@ def adjust_range_for_stack_depth(villain_top_frac: float, stack_bb: float, param
         return villain_top_frac
 
 
-def choose_bot_action(state, params: BotParams) -> tuple[str, Optional[int]]:
+def choose_bot_action(state, params: BotParams, opponent_profile=None) -> tuple[str, Optional[int]]:
     """
     Bot acts off of monte carlo equity in conjunction with opponent modeling
     which narrows the range of cards that the algorithm will simulate when calculating equity.
@@ -141,6 +141,8 @@ def choose_bot_action(state, params: BotParams) -> tuple[str, Optional[int]]:
 
     Fold equity allows bot to now raise even if equity (chances of winning with current hand) are weaker than desired.
     Stack depth adjusts strategy: deep stacks play wider, short stacks tighter (push/fold).
+    
+    Opponent modeling adjusts bluff frequency based on opponent's historical fold-to-raise and aggression tendencies.
 
     """
     actor = getattr(state, "actor_index", None)
@@ -245,7 +247,19 @@ def choose_bot_action(state, params: BotParams) -> tuple[str, Optional[int]]:
         return ("c", None)
 
     # --- Bluff / semi-bluff using fold equity modeling ---
-    if can_raise and random.random() < params.bluff_freq:
+    # Adjust bluff frequency based on opponent's fold-to-raise tendency
+    bluff_freq = params.bluff_freq
+    if opponent_profile is not None:
+        # Get opponent's fold-to-raise frequency for this street
+        street_name = "preflop" if board_len == 0 else "postflop"
+        ftr = opponent_profile.fold_to_raise_freq(street_name)
+        
+        # If opponent folds often, bluff more; if they call often, bluff less
+        # Map FTR (0.0 to 1.0) to bluff frequency multiplier (0.5x to 2.0x)
+        bluff_multiplier = 0.5 + (ftr * 1.5)  # ranges from 0.5 to 2.0
+        bluff_freq = params.bluff_freq * bluff_multiplier
+    
+    if can_raise and random.random() < bluff_freq:
         # Don't bluff into extremely strong lines (very tight range)
         if villain_top_frac >= params.bluff_range_threshold:  # looser than threshold -> can fold more
             amt = big_raise_to(params.bluff_raise_frac) or small_raise_to()

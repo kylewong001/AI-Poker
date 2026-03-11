@@ -19,11 +19,11 @@ class OpponentProfile:
     total_passive_actions: int = 0    # calls
     total_folds: int = 0
     
-    # Fold to aggression
-    fold_to_raise_preflop: int = 0
-    folds_to_raise_preflop: int = 0
-    fold_to_raise_postflop: int = 0
-    folds_to_raise_postflop: int = 0
+    # Fold to raise tracking: count both raises faced AND folds to raises
+    raises_faced_preflop: int = 0      # times bot raised preflop and opponent had to respond
+    folds_to_raise_preflop: int = 0    # times opponent folded to preflop raise
+    raises_faced_postflop: int = 0     # times bot raised postflop and opponent had to respond
+    folds_to_raise_postflop: int = 0   # times opponent folded to postflop raise
     
     # Showdown stats
     showdown_hands: list = field(default_factory=list)  # list of (hole_cards, result)
@@ -38,19 +38,16 @@ class OpponentProfile:
     def fold_to_raise_freq(self, street: str = "postflop") -> float:
         """Frequency opponent folds to raises. street: 'preflop' or 'postflop'."""
         if street == "preflop":
-            total = self.fold_to_raise_preflop + self.folds_to_raise_preflop
-        else:
-            total = self.fold_to_raise_postflop + self.folds_to_raise_postflop
-        
-        if total == 0:
-            return 0.5  # assume neutral if no data
-        
-        if street == "preflop":
+            raises_faced = self.raises_faced_preflop
             folds = self.folds_to_raise_preflop
         else:
+            raises_faced = self.raises_faced_postflop
             folds = self.folds_to_raise_postflop
         
-        return folds / total if total > 0 else 0.5
+        if raises_faced == 0:
+            return 0.5  # assume neutral if no data yet (not enough sample)
+        
+        return folds / raises_faced
     
     def print_summary(self):
         print("\n================== OPPONENT PROFILE ==================")
@@ -58,8 +55,15 @@ class OpponentProfile:
         print(f"Total aggressive actions (bets+raises): {self.total_aggressive_actions}")
         print(f"Total passive actions (calls): {self.total_passive_actions}")
         print(f"Total folds: {self.total_folds}")
-        print(f"\nFold to raise (preflop): {self.fold_to_raise_freq('preflop'):.1%}")
-        print(f"Fold to raise (postflop): {self.fold_to_raise_freq('postflop'):.1%}")
+        
+        ftr_pre = self.fold_to_raise_freq('preflop')
+        ftr_post = self.fold_to_raise_freq('postflop')
+        
+        pre_data = f"({self.raises_faced_preflop} raises)" if self.raises_faced_preflop > 0 else "(no data - default)"
+        post_data = f"({self.raises_faced_postflop} raises)" if self.raises_faced_postflop > 0 else "(no data - default)"
+        
+        print(f"\nFold to raise (preflop): {ftr_pre:.1%} {pre_data}")
+        print(f"Fold to raise (postflop): {ftr_post:.1%} {post_data}")
         print(f"Hands seen at showdown: {self.hands_seen_at_showdown}")
         print("====================================================\n")
 

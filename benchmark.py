@@ -18,6 +18,7 @@ from helpers import (
     determine_card_winner,
     estimate_equity_vs_known_hand,
     winner_on_one_random_runout,
+    _preflop_strength_score,
 )
 
 
@@ -63,7 +64,8 @@ class FixedOpponentStrategy:
     
     def decide_action(self, state, opponent_index: int = 0) -> tuple[str, Optional[int]]:
         """
-        Decide action for fixed opponent strategy.
+        Decide action for fixed opponent strategy using hand strength heuristics.
+        More efficient than full equity calculation - uses preflop scoring + simple heuristics.
         Returns: ("f"/"c"/"r"/"a", amount_or_None)
         """
         try:
@@ -85,34 +87,69 @@ class FixedOpponentStrategy:
             
             cca = _get_call_amount(state)
             
-            # Strategy: based on difficulty + random noise
-            if can_raise and random.random() < self.bluff_freq:
-                # Bluff sometimes
-                if random.random() < 0.5 and state.can_check_or_call():
-                    return ("c", None)
+            # Calculate hand strength using preflop scoring (fast)
+            try:
+                hole_codes = _hole_codes_for_player(state, opponent_index)
+                board_codes = _board_codes(state)
+                
+                if len(hole_codes) == 2:
+                    # Use preflop strength score - fast heuristic
+                    hand_strength = _preflop_strength_score(hole_codes[0], hole_codes[1]) / 100.0
+                    
+                    # On later streets, adjust downward as board improves other hands
+                    if len(board_codes) > 0:
+                        hand_strength *= (1.0 - len(board_codes) * 0.05)  # Slight decay
+                else:
+                    hand_strength = 0.5
+            except:
+                hand_strength = 0.5
             
-            if can_raise and random.random() < self.raise_freq:
-                # Raise instead of call
-                try:
-                    min_to = getattr(state, "min_completion_betting_or_raising_to_amount", None)
-                    if min_to and state.can_complete_bet_or_raise_to(int(min_to)):
-                        return ("r", int(min_to))
-                except:
-                    pass
+            # Calculate pot odds (required equity to call)
+            if cca > 0 and (cca + int(getattr(state, "total_pot_amount", 0) or 0)) > 0:
+                pot_odds = cca / (cca + int(getattr(state, "total_pot_amount", 0) or 0))
+            else:
+                pot_odds = 0.0
             
-            if can_call and cca >= 0:
+            # Decision logic based on hand strength
+            if hand_strength >= self.raise_threshold and can_raise:
+                # Strong hand: raise often
+                if random.random() < self.raise_freq:
+                    try:
+                        min_to = getattr(state, "min_completion_betting_or_raising_to_amount", None)
+                        if min_to and state.can_complete_bet_or_raise_to(int(min_to)):
+                            return ("r", int(min_to))
+                    except:
+                        pass
+            
+            # Bluff on weak hands occasionally
+            if hand_strength < self.call_threshold and can_raise and random.random() < self.bluff_freq:
+                if random.random() < 0.6:  # 60% of the time, bluff with raise
+                    try:
+                        min_to = getattr(state, "min_completion_betting_or_raising_to_amount", None)
+                        if min_to and state.can_complete_bet_or_raise_to(int(min_to)):
+                            return ("r", int(min_to))
+                    except:
+                        pass
+            
+            # Call if hand strength > call threshold or has pot odds
+            if (hand_strength >= self.call_threshold or hand_strength >= pot_odds) and can_call:
                 return ("c", None)
             
+            # Fold if can't call or hand too weak
             if can_fold:
                 return ("f", None)
             
+            # Fallback
             return ("c", None) if can_call else ("f", None)
         except Exception as e:
             # Fallback on any error
-            if state.can_check_or_call():
-                return ("c", None)
-            elif state.can_fold():
-                return ("f", None)
+            try:
+                if state.can_check_or_call():
+                    return ("c", None)
+                elif state.can_fold():
+                    return ("f", None)
+            except:
+                pass
             return ("c", None)
 
 
@@ -275,8 +312,8 @@ class BotBenchmark:
                     # Opponent acts
                     act, amt = opponent_strategy.decide_action(state, opponent_index=0)
                 else:
-                    # Bot acts
-                    act, amt = choose_bot_action(state, bot_params)
+                    # Bot acts (with opponent profile for modeling)
+                    act, amt = choose_bot_action(state, bot_params, opponent_profile)
                 
                 # Execute action with safety checks
                 if act == "f" and state.can_fold():

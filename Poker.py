@@ -25,6 +25,14 @@ def record_opponent_aggressive_action(opponent_profile: OpponentProfile, street_
     opponent_profile.total_aggressive_actions += 1
 
 
+def record_opponent_faced_raise(opponent_profile: OpponentProfile, street_num: int):
+    """Record that opponent faced a raise from the bot."""
+    if street_num == 0:
+        opponent_profile.raises_faced_preflop += 1
+    else:
+        opponent_profile.raises_faced_postflop += 1
+
+
 def record_opponent_passive_action(opponent_profile: OpponentProfile):
     """Record that opponent made a passive action (call)."""
     opponent_profile.total_passive_actions += 1
@@ -35,10 +43,8 @@ def record_opponent_fold_to_raise(opponent_profile: OpponentProfile, street_num:
     opponent_profile.total_folds += 1
     if street_num == 0:
         opponent_profile.folds_to_raise_preflop += 1
-        opponent_profile.fold_to_raise_preflop += 1
     else:
         opponent_profile.folds_to_raise_postflop += 1
-        opponent_profile.fold_to_raise_postflop += 1
 
 
 def record_showdown_hand(opponent_profile: OpponentProfile, hole_codes: list, result: str):
@@ -119,14 +125,20 @@ def play_one_hand(
             if cmd == "f" and state.can_fold():
                 state.fold()
                 print("You fold.")
+                # Track opponent fold
+                record_opponent_fold_to_raise(opponent_profile, state.street_index)
             elif cmd == "c" and state.can_check_or_call():
                 cca = _get_call_amount(state)
                 state.check_or_call()
 
                 if cca == 0:
                     print("You check.")
+                    # Track opponent check (passive action)
+                    record_opponent_passive_action(opponent_profile)
                 else:
                     print(f"You call {cca}.")
+                    # Track opponent call (passive action)
+                    record_opponent_passive_action(opponent_profile)
 
             elif cmd.startswith("r"):
                 parts = cmd.split()
@@ -141,6 +153,8 @@ def play_one_hand(
                 if state.can_complete_bet_or_raise_to(amt):
                     state.complete_bet_or_raise_to(amt)
                     print(f"You raise to {amt}.")
+                    # Track opponent raise (aggressive action)
+                    record_opponent_aggressive_action(opponent_profile, state.street_index)
                 else:
                     min_to = getattr(state, "min_completion_betting_or_raising_to_amount", None)
                     max_to = getattr(state, "max_completion_betting_or_raising_to_amount", None)
@@ -153,6 +167,8 @@ def play_one_hand(
                 if state.can_complete_bet_or_raise_to(max_to):
                     state.complete_bet_or_raise_to(max_to)
                     print(f"You go all-in to {max_to}.")
+                    # Track opponent all-in (aggressive action)
+                    record_opponent_aggressive_action(opponent_profile, state.street_index)
                 else:
                     print("All-in not legal here.")
             else:
@@ -162,7 +178,7 @@ def play_one_hand(
    
 
         else:
-            act, amt = choose_bot_action(state, bot_params)
+            act, amt = choose_bot_action(state, bot_params, opponent_profile)
             if act == "f" and state.can_fold():
                 # capture fold context BEFORE folding
                 bot_fold_pot = int(getattr(state, "total_pot_amount", 0) or 0)
@@ -189,12 +205,16 @@ def play_one_hand(
                 if max_to is not None and state.can_complete_bet_or_raise_to(max_to):
                     state.complete_bet_or_raise_to(max_to)
                     print(f"\nBot goes all-in to {max_to}.")
+                    # Track that opponent faced a raise
+                    record_opponent_faced_raise(opponent_profile, state.street_index)
                 else:
                     state.check_or_call()
                     print("\nBot calls (fallback).")
             elif act == "r" and amt is not None and state.can_complete_bet_or_raise_to(amt):
                 state.complete_bet_or_raise_to(amt)
                 print(f"\nBot raises to {amt}.")
+                # Track that opponent faced a raise
+                record_opponent_faced_raise(opponent_profile, state.street_index)
             else:
                 if state.can_check_or_call():
                     state.check_or_call()
