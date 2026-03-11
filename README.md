@@ -16,10 +16,13 @@ To run this code ensure you have installed PokerKit (pip install PokerKit)
 
 Sources:
 https://github.com/uoftcprg/pokerkit
-**Opponent Modeling**: PokerTracker/Hold'em Manager aggression index metrics; adaptive poker theory
-**Stack Depth Strategy**: Push/fold equilibrium (Jehu Baker et al.); ICM (Independent Chip Model); standard tournament poker theory
-**Fold Equity**: Fedor Holz, Daniel Negreanu - positional aggression; bankroll management literature
-**Monte Carlo Methods**: Equilibrium Poker research; computational game theory
+
+- **Opponent Modeling**: PokerTracker/Hold'em Manager aggression index metrics; adaptive poker theory
+- **Stack Depth Strategy**: Push/fold equilibrium (Jehu Baker et al.); ICM (Independent Chip Model); standard tournament poker theory
+- **Fold Equity**: Fedor Holz, Daniel Negreanu - positional aggression; bankroll management literature
+- **Monte Carlo Methods**: Equilibrium Poker research; computational game theory
+- **Performance Metrics**: Professional poker statistics (Upswing Poker, Run It Once)
+
 
 
 Updates: 
@@ -71,9 +74,6 @@ The bot now adapts strategy based on effective stack depth (in big blinds):
 Improvements:
 Bot now adapts to both opponent tendencies AND stack dynamics. Opponent tracking enables the bot to exploit tight/loose players. Stack depth awareness prevents poor decisions in late stages (ex. calling too wide when short, not using pressure when deep). This combination significantly improves win rate in varied game situations.
 
-==========================================================
-(2/25)
-
 Performance Metrics & Tracking:
 
 New metrics have been added to `GameStats` for comprehensive bot performance evaluation:
@@ -91,14 +91,6 @@ New metrics have been added to `GameStats` for comprehensive bot performance eva
 - Bluff success rate (folds induced divided by bluffs attempted)
 - Correct fold % (EV-based fold accuracy)
 - "Folded winner" tracking (hands that would have won if not folded)
-
-**Implementation:**
-The `GameStats` class now tracks:
-- `total_profit`: Cumulative chip changes
-- `hand_profits`: Per-hand profit/loss for variance calculation
-- `calculate_*()` methods: Automatically compute all metrics
-
-Each session now displays a formatted stats summary with all metrics after each hand, allowing real-time monitoring of bot performance.
 
 Example Output:
 ```
@@ -126,10 +118,5 @@ Std deviation: ±87.3 chips
 
 These metrics enable objective evaluation of bot improvements over time.
 
-Sources Referenced:
-- **Opponent Modeling**: PokerTracker/Hold'em Manager aggression index metrics; adaptive poker theory
-- **Stack Depth Strategy**: Push/fold equilibrium (Jehu Baker et al.); ICM (Independent Chip Model); standard tournament poker theory
-- **Fold Equity**: Fedor Holz, Daniel Negreanu - positional aggression; bankroll management literature
-- **Monte Carlo Methods**: Equilibrium Poker research; computational game theory
-- **Performance Metrics**: Professional poker statistics (Upswing Poker, Run It Once)
+
 
