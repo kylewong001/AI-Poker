@@ -609,10 +609,10 @@ def _print_adaptive_comparison(results: dict, num_hands: int) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     print("Starting adaptive vs. non-adaptive comparison...")
-    print("(Running 150 hands per opponent, checkpoints every 50 hands)\n")
+    print("(Running 2000 hands per opponent, checkpoints every 200 hands)\n")
 
     run_adaptive_comparison(
-        num_hands=150,
-        checkpoint_interval=50,
+        num_hands=2000,
+        checkpoint_interval=200,
         verbose=False,
     )

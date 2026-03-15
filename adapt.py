@@ -57,7 +57,7 @@ class EnhancedOpponentProfile(OpponentProfile):
     _PRIOR_RANGE: float = 0.40
     _PRIOR_FOLD_RAISE: float = 0.50
     _MIN_HANDS_ADAPT: int = 6  # don't adapt at all until this many hands
-    _FULL_CONFIDENCE_HANDS: int = 60
+    _FULL_CONFIDENCE_HANDS: int = 200
     def update_derived_stats(self):
         n = self.hands_dealt
         if n==0:
@@ -269,7 +269,6 @@ def adapt_params_to_opponent(base_params: BotParams,
         # ── Tight postflop: folds to most bets ──
         if af >= 1.5:
             # TAG: premium range when entering → respect their hands, bluff them off
-            params.call_edge = base_params.call_edge + 0.04 * w
             params.bluff_freq = min(0.12, base_params.bluff_freq + 0.03 * w)
             params.bluff_range_threshold = max(0.10, base_params.bluff_range_threshold - 0.04 * w)
         else:
@@ -284,8 +283,9 @@ def adapt_params_to_opponent(base_params: BotParams,
             # LAG/Maniac: wide range + aggressive → call wider, bluff less, trap more
             params.call_edge = max(0.0, base_params.call_edge - 0.04 * w)
             params.bluff_freq = max(0.01, base_params.bluff_freq - 0.04 * w)
-            params.check_raise_threshold = max(0.55, base_params.check_raise_threshold - 0.05 * w)
-            params.value_raise_threshold = max(0.55, base_params.value_raise_threshold - 0.05 * w)
+            if postflop_fold_raise > 0.05:
+                params.value_raise_threshold = max(0.55, base_params.value_raise_threshold - 0.05 * w)
+                params.check_raise_threshold = max(0.55, base_params.check_raise_threshold - 0.05 * w)
         else:
             # Calling Station: calls everything → value-bet thin, never bluff
             params.bluff_freq = max(0.01, base_params.bluff_freq - 0.04 * w)
@@ -294,9 +294,14 @@ def adapt_params_to_opponent(base_params: BotParams,
 
     else:
         # ── Balanced postflop (0.25–0.70) ──
+        fold_scale = (postflop_fold_raise - 0.25) / 0.65
+        fold_scale = max(0.0, min(1.0, fold_scale))
+        params.bluff_freq = min(0.12, base_params.bluff_freq + 0.05 * w * fold_scale)
+        params.bluff_range_threshold = max(0.10, base_params.bluff_range_threshold - 0.04 * w * fold_scale)
+
         if af >= 2.0:
             # Balanced but aggressive → call slightly wider
-            params.call_edge = max(0.0, base_params.call_edge - 0.02 * w)
+            params.call_edge = max(0.01, base_params.call_edge - 0.01 * w)
         else:
             # Balanced passive → slight tightening
             params.call_edge = base_params.call_edge + 0.01 * w

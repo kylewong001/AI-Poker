@@ -258,6 +258,9 @@ def choose_bot_action(state, params: BotParams, profile=None) -> tuple[str, Opti
             amt = big_raise_to(params.bluff_raise_frac) or small_raise_to()
             if amt is not None:
                 fold_p = estimate_fold_probability(villain_top_frac, raise_to=amt, pot=pot)
+                if profile is not None and profile.confidence > 0 and board_len > 0:
+                    obs_fold = profile.estimated_postflop_fold_to_raise
+                    fold_p = (1 - profile.confidence) * fold_p + profile.confidence * obs_fold
                 # approximate invest as raise_to amount (good enough for decision ranking)
                 invest = amt
                 # EV(raise) compared to EV(fold)=0 baseline

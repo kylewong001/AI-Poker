@@ -40,8 +40,8 @@ if __name__ == "__main__":
 
         try:
             run_adaptive_comparison(
-                num_hands=150,
-                checkpoint_interval=50,
+                num_hands=2000,
+                checkpoint_interval=200,
                 verbose=False,
             )
         finally:
