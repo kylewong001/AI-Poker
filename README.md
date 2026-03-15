@@ -1,4 +1,8 @@
 # AI-Poker
+CSC 480 - Artificial Intelligence | Cal Poly San Luis Obispo
+
+Instructor: Rodrigo Canaan
+
 Objective:
 
 Implement an AI bot that is capable of playing Texas Hold 'Em poker at a high level. The bot should make optimal moves based on a number of metrics.
@@ -11,7 +15,35 @@ Goals:
 
 -Implement decision making algorithms for bots to make optimal decisions
 
-To run this code ensure you have installed PokerKit (pip install PokerKit)
+Installation:
+
+Requires Python 3.11+. Install the one dependency:
+```
+pip install pokerkit
+```
+
+Running the Project:
+
+**Play interactively (you vs. the adaptive bot):**
+```
+python Poker.py
+```
+Starts a heads-up No Limit Texas Hold 'Em session with 10,000 chip stacks, 50/100 blinds. The bot adapts its strategy in real time based on your play.
+
+**Run the adaptive vs. static benchmark:**
+```
+python run_benchmark_suite.py
+```
+Simulates 2000 hands per opponent type (tight, balanced, loose, aggressive) and compares the adaptive bot against a non-adaptive baseline. Results are printed to the console and saved to a timestamped file (e.g. `benchmark_results_20260314_120000.txt`).
+
+To change the number of hands or checkpoint interval, edit the parameters in `run_benchmark_suite.py`:
+```python
+run_adaptive_comparison(
+    num_hands=2000,        # hands per opponent type
+    checkpoint_interval=200,  # how often to record BB/100 snapshots
+    verbose=False,         # set True for hand-by-hand output
+)
+```
 
 
 Sources:
