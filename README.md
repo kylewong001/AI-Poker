@@ -118,5 +118,45 @@ Std deviation: ±87.3 chips
 
 These metrics enable objective evaluation of bot improvements over time.
 
+==========================================================
+(3/4 - 3/14)
 
+Bot Logic:
+Adaptive opponent modeling has been implemented, allowing the bot to update its strategy in real time based on observed opponent behavior across hands.
+
+Opponent Profiling:
+The bot now builds an `EnhancedOpponentProfile` that tracks detailed opponent tendencies each hand:
+- **VPIP / PFR**: Voluntarily put in preflop / preflop raise frequency, tracking how often the opponent enters pots and raises
+- **Aggression Factor (AF)**: `(bets + raises) / calls` computed separately per street (flop, turn, river)
+- **Fold-to-Raise**: Tracked independently for preflop and postflop, revealing whether an opponent folds to pressure before or after the board is dealt
+- **C-bet Frequency**: How often the opponent continuation bets the flop after raising preflop
+- **Check-Raise Frequency**: How often the opponent check-raises, used to shrink bet sizing to avoid inflating pots
+
+Bayesian Confidence Blending:
+All estimates use a Bayesian-style prior blend that ramps from neutral priors toward observed values as sample size grows:
+- Confidence starts at 0 and reaches 1.0 after 200 observed hands, preventing early noisy data from locking in unreliable estimates
+- Each derived stat (VPIP, PFR, AF, fold rates) is blended as: `(1 - confidence) * prior + confidence * observed`
+
+Opponent Classification:
+Each hand, the bot classifies the opponent into one of four types using postflop fold-to-raise as the primary discriminator:
+- **TAG (Tight Aggressive)**: Postflop FTR > 90% — plays few hands but raises aggressively
+- **Balanced**: Postflop FTR 25–90% — standard mix of calls and folds
+- **Maniac (Loose Aggressive)**: Postflop FTR < 25%, AF > 2 — wide range, rarely folds
+- **Calling Station**: Postflop FTR < 25%, AF ≤ 2 — wide range, passively calls everything
+
+Parameter Adaptation:
+Based on the classification, the bot adjusts its `BotParams` each hand:
+- **vs TAG**: Increases bluff frequency and lowers bluff range threshold to exploit their high fold rate
+- **vs Maniac**: Reduces bluffing (they rarely fold), gates thin value bets and check-raises behind a minimum fold rate to avoid inflating pots with no fold equity
+- **vs Calling Station**: Maximizes thin value betting, eliminates bluffing entirely
+- **vs Balanced**: Scales bluff frequency proportionally to observed postflop fold rate
+
+Bluff EV Correction:
+The fold probability used in bluff EV calculations now blends the model estimate with the opponent's observed postflop fold-to-raise rate. This corrects a systematic underestimation where the model predicted ~12% fold probability for tight players whose actual fold rate was ~97%, causing the EV filter to block profitable bluffs.
+
+Improvements:
+The bot now exploits opponent tendencies in real time rather than using fixed parameters for every opponent type. Against a tight folder it bluffs more aggressively; against a calling station it value bets thinner and never bluffs. Benchmarks show the adaptive bot consistently outperforms the static baseline against tight and loose opponents across 2000+ hand samples.
+
+Benchmark Suite:
+A full adaptive vs. non-adaptive benchmark suite (`run_benchmark_suite.py`) runs both versions head-to-head across all four opponent types, producing a learning curve at configurable checkpoints and a final BB/100 comparison table. Results are saved to a timestamped file for tracking progress across iterations.
 
