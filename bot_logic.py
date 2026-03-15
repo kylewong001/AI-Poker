@@ -131,7 +131,7 @@ def adjust_range_for_stack_depth(villain_top_frac: float, stack_bb: float, param
         return villain_top_frac
 
 
-def choose_bot_action(state, params: BotParams, opponent_profile=None) -> tuple[str, Optional[int]]:
+def choose_bot_action(state, params: BotParams, profile=None) -> tuple[str, Optional[int]]:
     """
     Bot acts off of monte carlo equity in conjunction with opponent modeling
     which narrows the range of cards that the algorithm will simulate when calculating equity.
@@ -141,8 +141,6 @@ def choose_bot_action(state, params: BotParams, opponent_profile=None) -> tuple[
 
     Fold equity allows bot to now raise even if equity (chances of winning with current hand) are weaker than desired.
     Stack depth adjusts strategy: deep stacks play wider, short stacks tighter (push/fold).
-    
-    Opponent modeling adjusts bluff frequency based on opponent's historical fold-to-raise and aggression tendencies.
 
     """
     actor = getattr(state, "actor_index", None)
@@ -180,8 +178,15 @@ def choose_bot_action(state, params: BotParams, opponent_profile=None) -> tuple[
 
     # --- Decide how tight villain range is based on pressure ---
     required_eq = cca / (pot + cca) if (pot + cca) > 0 else 1.0
-    villain_top_frac = estimate_villain_top_frac(board_len, required_eq, cca, pot)
-    
+
+    if profile is not None and profile.confidence > 0:
+        from adapt import estimate_villain_top_frac_adaptive
+        villain_top_frac = estimate_villain_top_frac_adaptive(
+            board_len, required_eq, cca, pot, profile
+        )
+    else:
+        villain_top_frac = estimate_villain_top_frac(board_len, required_eq, cca, pot)
+
     # Adjust range based on stack depth
     villain_top_frac = adjust_range_for_stack_depth(villain_top_frac, stack_bb, params)
 
@@ -247,24 +252,15 @@ def choose_bot_action(state, params: BotParams, opponent_profile=None) -> tuple[
         return ("c", None)
 
     # --- Bluff / semi-bluff using fold equity modeling ---
-    # Adjust bluff frequency based on opponent's fold-to-raise tendency
-    bluff_freq = params.bluff_freq
-    if opponent_profile is not None:
-        # Get opponent's fold-to-raise frequency for this street
-        street_name = "preflop" if board_len == 0 else "postflop"
-        ftr = opponent_profile.fold_to_raise_freq(street_name)
-        
-        # If opponent folds often, bluff more; if they call often, bluff less
-        # Map FTR (0.0 to 1.0) to bluff frequency multiplier (0.5x to 2.0x)
-        bluff_multiplier = 0.5 + (ftr * 1.5)  # ranges from 0.5 to 2.0
-        bluff_freq = params.bluff_freq * bluff_multiplier
-    
-    if can_raise and random.random() < bluff_freq:
+    if can_raise and random.random() < params.bluff_freq:
         # Don't bluff into extremely strong lines (very tight range)
         if villain_top_frac >= params.bluff_range_threshold:  # looser than threshold -> can fold more
             amt = big_raise_to(params.bluff_raise_frac) or small_raise_to()
             if amt is not None:
                 fold_p = estimate_fold_probability(villain_top_frac, raise_to=amt, pot=pot)
+                if profile is not None and profile.confidence > 0 and board_len > 0:
+                    obs_fold = profile.estimated_postflop_fold_to_raise
+                    fold_p = (1 - profile.confidence) * fold_p + profile.confidence * obs_fold
                 # approximate invest as raise_to amount (good enough for decision ranking)
                 invest = amt
                 # EV(raise) compared to EV(fold)=0 baseline

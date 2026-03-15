@@ -61,7 +61,8 @@ def play_one_hand(
     min_bet: int = 100,
     bot_params: BotParams = BotParams(),
     opponent_profile: OpponentProfile | None = None,
-) -> tuple[tuple[int, int], int, list, list, list, FoldInfo]:
+    action_observer=None,
+):
 
     if opponent_profile is None:
         opponent_profile = OpponentProfile()
@@ -112,16 +113,35 @@ def play_one_hand(
             print(_stacks_str(state))
 
 
-        actor = getattr(state, "actor_index", None)
+        actor = getattr(state,"actor_index",None)
         if actor is None:
             continue
+
+        cca = _get_call_amount(state)
+        pot = int(getattr(state,"total_pot_amount",0) or 0)
 
         if actor == 0:
             print("\n=============================================================================")
             print("\nYour turn.")
             print("Legal:", _legal_actions_str(state))
             cmd = input("Action (fold/check/raise <amt>/a): ").strip().lower()
-
+            if action_observer is not None:
+                raise_to = None
+                if cmd.startswith("r"):
+                    parts = cmd.split()
+                    if len(parts) == 2:
+                        try:
+                            raise_to = int(parts[1])
+                        except ValueError:
+                            pass
+                action_observer.record_action(
+                    action=cmd[0] if cmd else "c",
+                    street=state.street_index or 0,
+                    call_amount=cca,
+                    raise_to=raise_to,
+                    pot=pot,
+                    facing_raise=cca > 0,
+                )
             if cmd == "f" and state.can_fold():
                 state.fold()
                 print("You fold.")
@@ -246,29 +266,46 @@ def play_one_hand(
     player_codes = _hole_codes_for_player(state, 0)
     bot_codes = _hole_codes_for_player(state, 1)
 
-    return (ending_stacks, bot_delta, board_codes_end, player_codes, bot_codes, fold_info)
+    return ending_stacks, bot_delta, board_codes_end, player_codes, bot_codes, fold_info
 
 def main() -> None:
+
+    from adapt import EnhancedOpponentProfile, ActionObserver, adapt_params_to_opponent
     print("PokerKit: Heads-Up No Limit Hold 'Em — You vs Bot")
 
     stacks = (10000, 10000)
     sb, bb, min_bet = 50, 100, 100
 
-    bot_params = BotParams()
+    base_bot_params = BotParams()
     stats = GameStats()
-    opponent_profile = OpponentProfile()
+    opponent_profile =EnhancedOpponentProfile()
 
     while True:
-        
-        (stacks, bot_delta, board_codes, player_codes, bot_codes, fold_info) = play_one_hand(
-            stacks, sb=sb, bb=bb, min_bet=min_bet, bot_params=bot_params, opponent_profile=opponent_profile) 
+        # ── 1. Generate adapted params from what we've learned so far ──────
+        adapted_params = adapt_params_to_opponent(base_bot_params, opponent_profile)
 
-        # ---- update stats ----
+        # ── 2. Create a fresh observer for this hand ───────────────────────
+        observer = ActionObserver(opponent_profile)
+        observer.hand_start()
+
+        # ── 3. Play the hand ───────────────────────────────────────────────
+        (stacks, bot_delta, board_codes,
+         player_codes, bot_codes, fold_info) = play_one_hand(
+            stacks,
+            sb=sb, bb=bb, min_bet=min_bet,
+            bot_params=adapted_params,  # ← adapted, not base
+            opponent_profile=opponent_profile,
+            action_observer=observer,  # ← observer records opponent actions
+        )
+
+        # ── 4. Close out observer (triggers derived stat update) ───────────
+        observer.hand_end()
+
+        # ── 5. Update game stats (unchanged from your original) ────────────
         stats.hands += 1
         stats.total_profit += bot_delta
         stats.hand_profits.append(bot_delta)
 
-        # Actual winner (by chip delta)
         if bot_delta > 0:
             stats.bot_wins += 1
         elif bot_delta < 0:
@@ -276,7 +313,6 @@ def main() -> None:
         else:
             stats.ties += 1
 
-        # "Should have won" (by cards), only if board completed
         if len(board_codes) == 5:
             stats.showdowns += 1
             should = determine_card_winner(player_codes, bot_codes, board_codes)
@@ -289,36 +325,34 @@ def main() -> None:
             else:
                 stats.should_tie += 1
                 record_showdown_hand(opponent_profile, player_codes, "tie")
-        
+
         if fold_info.folded:
             stats.bot_folds += 1
-
-            # required equity to call (pot odds)
-            required_eq = (fold_info.call_amount / (fold_info.pot + fold_info.call_amount)) if (fold_info.pot + fold_info.call_amount) > 0 else 1.0
-
-            # equity vs your *actual* hand at fold time (simulate remaining board only)
+            required_eq = (
+                fold_info.call_amount / (fold_info.pot + fold_info.call_amount)
+                if (fold_info.pot + fold_info.call_amount) > 0 else 1.0
+            )
             eq_vs_actual = estimate_equity_vs_known_hand(
-                hero_hole_codes=bot_codes,          # bot hole cards
-                villain_hole_codes=player_codes,    # your hole cards
-                board_codes=fold_info.board_codes,  # board at fold time (0/3/4/5 cards)
+                hero_hole_codes=bot_codes,
+                villain_hole_codes=player_codes,
+                board_codes=fold_info.board_codes,
                 trials=2500,
             )
-
-            # If equity wasn't enough to justify calling, fold is correct (EV-based)
-            if eq_vs_actual < required_eq + bot_params.call_edge:
+            if eq_vs_actual < required_eq + adapted_params.call_edge:
                 stats.bot_correct_folds_ev += 1
 
-            # "folded to bluff" proxy: random runout once
             rng = random.Random(stats.hands * 99991 + 17)
-            runout_winner = winner_on_one_random_runout(player_codes, bot_codes, fold_info.board_codes, rng)
-
+            runout_winner = winner_on_one_random_runout(
+                player_codes, bot_codes, fold_info.board_codes, rng
+            )
             if runout_winner == "bot":
                 stats.bot_folded_winner_runout += 1
 
-        # Print summary after each hand (or comment this out and print only at end)
+        # ── 6. Print summaries ─────────────────────────────────────────────
         stats.print_summary()
-        opponent_profile.print_summary()
+        opponent_profile.print_summary()  # now shows adaptive metrics too
 
+        # ── 7. Early-exit conditions ───────────────────────────────────────
         if stacks[0] <= 0:
             print("\nYou lost it all. Game over.")
             stats.print_summary()
