@@ -1,6 +1,8 @@
 # AI-Poker
 CSC 480 - Artificial Intelligence | Cal Poly San Luis Obispo
 
+Kyle Wong, Hoikin Lam, Arturo Renteria, Miguel Coronado, Josh Cavender
+
 Instructor: Rodrigo Canaan
 
 Objective:
@@ -192,3 +194,20 @@ The bot now exploits opponent tendencies in real time rather than using fixed pa
 Benchmark Suite:
 A full adaptive vs. non-adaptive benchmark suite (`run_benchmark_suite.py`) runs both versions head-to-head across all four opponent types, producing a learning curve at configurable checkpoints and a final BB/100 comparison table. Results are saved to a timestamped file for tracking progress across iterations.
 
+Example Output:
+```
+==================================================================================
+                       ADAPTIVE vs NON-ADAPTIVE COMPARISON                        
+                            (2000 hands per opponent)                             
+==================================================================================
+
+                              FINAL RESULTS SUMMARY                               
+----------------------------------------------------------------------------------
+Opponent       Adaptive BB/100  Static BB/100    Delta   Confidence Reads As
+----------------------------------------------------------------------------------
+tight                   +47.23         +41.94    +5.29        100%  TAG (Tight Aggressive)
+balanced               +201.44         +90.52  +110.91        100%  Balanced (Aggressive)
+loose                  +905.78        +875.03   +30.75        100%  Maniac (Loose Aggressive)
+aggressive            +1104.88       +1005.23   +99.66        100%  Maniac (Loose Aggressive)
+----------------------------------------------------------------------------------
+```
