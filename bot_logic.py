@@ -3,7 +3,11 @@ from dataclasses import dataclass
 from typing import Optional
 from helpers import (
     estimate_equity_vs_range,
+<<<<<<< HEAD
     _board_codes, board_texture_description
+=======
+    _board_codes,
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
 )
 
 
@@ -131,7 +135,11 @@ def adjust_range_for_stack_depth(villain_top_frac: float, stack_bb: float, param
         return villain_top_frac
 
 
+<<<<<<< HEAD
 def choose_bot_action(state, params: BotParams) -> tuple[str, Optional[int]]:
+=======
+def choose_bot_action(state, params: BotParams, profile=None) -> tuple[str, Optional[int]]:
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
     """
     Bot acts off of monte carlo equity in conjunction with opponent modeling
     which narrows the range of cards that the algorithm will simulate when calculating equity.
@@ -172,14 +180,18 @@ def choose_bot_action(state, params: BotParams) -> tuple[str, Optional[int]]:
 
     my_stack = int(state.stacks[actor])
     board_len = len(_board_codes(state))
+<<<<<<< HEAD
     board_codes = _board_codes(state)
     board_texture = board_texture_description(board_codes)
+=======
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
     
     # --- Stack depth awareness ---
     stack_bb = get_effective_stack_bb(state, actor, bb=100)
 
     # --- Decide how tight villain range is based on pressure ---
     required_eq = cca / (pot + cca) if (pot + cca) > 0 else 1.0
+<<<<<<< HEAD
     villain_top_frac = estimate_villain_top_frac(board_len, required_eq, cca, pot)
     
     # Adjust range based on stack depth
@@ -189,6 +201,19 @@ def choose_bot_action(state, params: BotParams) -> tuple[str, Optional[int]]:
         bluff_possible *= 1.3
     elif "Wet board" in board_texture:
         bluff_possible *= 0.7
+=======
+
+    if profile is not None and profile.confidence > 0:
+        from adapt import estimate_villain_top_frac_adaptive
+        villain_top_frac = estimate_villain_top_frac_adaptive(
+            board_len, required_eq, cca, pot, profile
+        )
+    else:
+        villain_top_frac = estimate_villain_top_frac(board_len, required_eq, cca, pot)
+
+    # Adjust range based on stack depth
+    villain_top_frac = adjust_range_for_stack_depth(villain_top_frac, stack_bb, params)
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
 
     # --- Monte Carlo equity vs inferred range ---
     if board_len == 0:
@@ -252,12 +277,22 @@ def choose_bot_action(state, params: BotParams) -> tuple[str, Optional[int]]:
         return ("c", None)
 
     # --- Bluff / semi-bluff using fold equity modeling ---
+<<<<<<< HEAD
     if can_raise and random.random() < bluff_possible:
+=======
+    if can_raise and random.random() < params.bluff_freq:
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
         # Don't bluff into extremely strong lines (very tight range)
         if villain_top_frac >= params.bluff_range_threshold:  # looser than threshold -> can fold more
             amt = big_raise_to(params.bluff_raise_frac) or small_raise_to()
             if amt is not None:
                 fold_p = estimate_fold_probability(villain_top_frac, raise_to=amt, pot=pot)
+<<<<<<< HEAD
+=======
+                if profile is not None and profile.confidence > 0 and board_len > 0:
+                    obs_fold = profile.estimated_postflop_fold_to_raise
+                    fold_p = (1 - profile.confidence) * fold_p + profile.confidence * obs_fold
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
                 # approximate invest as raise_to amount (good enough for decision ranking)
                 invest = amt
                 # EV(raise) compared to EV(fold)=0 baseline

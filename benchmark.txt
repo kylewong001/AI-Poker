@@ -1,0 +1,257 @@
+tarting adaptive bot benchmarks...
+(Running 200 hands per opponent — enough for adaptation to kick in)
+
+Testing vs tight opponent...
+  Hand 100/200 | Profit: +73,965 | Confidence: 100% | Reads as: TAG ( Tight aggressive
+  Hand 200/200 | Profit: +138,682 | Confidence: 100% | Reads as: TAG ( Tight aggressive
+
+======================================================================
+BOT BENCHMARK REPORT vs TIGHT OPPONENT
+======================================================================
+
+Sample Size: 200 hands requested, 200 hands completed
+
+                            PROFITABILITY
+----------------------------------------------------------------------
+Total Profit/Loss: +137,364 chips
+Win Rate: 43.0%
+BB/100: +686.82
+ROI: +1373.6%
+Profit per Hand: +686.8 chips
+
+                             HAND RESULTS
+----------------------------------------------------------------------
+Wins:   86 (43.0%)
+Losses: 106 (53.0%)
+Ties:   8 (4.0%)
+
+                           VARIANCE METRICS
+----------------------------------------------------------------------
+Std Deviation: +3010.2 chips
+95% CI: [+269.6, +1104.0] chips/hand
+
+                          SHOWDOWN ANALYSIS
+----------------------------------------------------------------------
+Showdowns:        172 (86.0%)
+Should-have-won:  86 (50.0%)
+Should-have-lost: 78 (45.3%)
+Should-have-tied: 8 (4.7%)
+
+                            FOLD ANALYSIS
+----------------------------------------------------------------------
+Bot folds: 43 (21.5%)
+Correct folds (EV): 42 (97.7%)
+Folded winner:      0 (0.0%)
+
+                      ADAPTIVE LEARNING SUMMARY
+----------------------------------------------------------------------
+Hands observed:         200
+Final confidence:       100%
+Opponent classified as: TAG ( Tight aggressive
+Est. VPIP:              18.5%
+Est. PFR:               17.5%
+Est. Aggression Factor: 1.79
+Est. Range tightness:   0.20 (top_frac)
+Est. Fold-to-raise:     0.0%
+Est. C-bet freq:        14.6%
+
+  Parameter drift (base → final adapted):
+    bluff_freq:              0.050 → 0.020
+    call_edge:               0.020 → 0.030
+    value_raise_threshold:   0.700 → 0.700
+    check_raise_threshold:   0.620 → 0.620
+    value_raise_frac:        0.450 → 0.450
+
+======================================================================
+
+Testing vs balanced opponent...
+  Hand 100/200 | Profit: +130,036 | Confidence: 100% | Reads as: Maniac ( loose aggressive)
+  Hand 200/200 | Profit: +189,936 | Confidence: 100% | Reads as: Maniac ( loose aggressive)
+
+======================================================================
+BOT BENCHMARK REPORT vs BALANCED OPPONENT
+======================================================================
+
+Sample Size: 200 hands requested, 200 hands completed
+
+                            PROFITABILITY
+----------------------------------------------------------------------
+Total Profit/Loss: +189,836 chips
+Win Rate: 36.0%
+BB/100: +949.18
+ROI: +1898.4%
+Profit per Hand: +949.2 chips
+
+                             HAND RESULTS
+----------------------------------------------------------------------
+Wins:   72 (36.0%)
+Losses: 124 (62.0%)
+Ties:   4 (2.0%)
+
+                           VARIANCE METRICS
+----------------------------------------------------------------------
+Std Deviation: +3475.7 chips
+95% CI: [+467.5, +1430.9] chips/hand
+
+                          SHOWDOWN ANALYSIS
+----------------------------------------------------------------------
+Showdowns:        152 (76.0%)
+Should-have-won:  72 (47.4%)
+Should-have-lost: 75 (49.3%)
+Should-have-tied: 5 (3.3%)
+
+                            FOLD ANALYSIS
+----------------------------------------------------------------------
+Bot folds: 73 (36.5%)
+Correct folds (EV): 72 (98.6%)
+Folded winner:      0 (0.0%)
+
+                      ADAPTIVE LEARNING SUMMARY
+----------------------------------------------------------------------
+Hands observed:         200
+Final confidence:       100%
+Opponent classified as: Maniac ( loose aggressive)
+Est. VPIP:              45.5%
+Est. PFR:               45.0%
+Est. Aggression Factor: 5.52
+Est. Range tightness:   0.50 (top_frac)
+Est. Fold-to-raise:     0.0%
+Est. C-bet freq:        42.6%
+
+  Parameter drift (base → final adapted):
+    bluff_freq:              0.050 → 0.010
+    call_edge:               0.020 → 0.000
+    value_raise_threshold:   0.700 → 0.700
+    check_raise_threshold:   0.620 → 0.570
+    value_raise_frac:        0.450 → 0.450
+
+======================================================================
+
+Testing vs loose opponent...
+  Hand 100/200 | Profit: +169,600 | Confidence: 100% | Reads as: Maniac ( loose aggressive)
+  Hand 200/200 | Profit: +279,486 | Confidence: 100% | Reads as: Maniac ( loose aggressive)
+
+======================================================================
+BOT BENCHMARK REPORT vs LOOSE OPPONENT
+======================================================================
+
+Sample Size: 200 hands requested, 200 hands completed
+
+                            PROFITABILITY
+----------------------------------------------------------------------
+Total Profit/Loss: +279,686 chips
+Win Rate: 41.5%
+BB/100: +1398.43
+ROI: +2796.9%
+Profit per Hand: +1398.4 chips
+
+                             HAND RESULTS
+----------------------------------------------------------------------
+Wins:   83 (41.5%)
+Losses: 113 (56.5%)
+Ties:   4 (2.0%)
+
+                           VARIANCE METRICS
+----------------------------------------------------------------------
+Std Deviation: +3765.3 chips
+95% CI: [+876.6, +1920.3] chips/hand
+
+                          SHOWDOWN ANALYSIS
+----------------------------------------------------------------------
+Showdowns:        160 (80.0%)
+Should-have-won:  83 (51.9%)
+Should-have-lost: 73 (45.6%)
+Should-have-tied: 4 (2.5%)
+
+                            FOLD ANALYSIS
+----------------------------------------------------------------------
+Bot folds: 68 (34.0%)
+Correct folds (EV): 67 (98.5%)
+Folded winner:      0 (0.0%)
+
+                      ADAPTIVE LEARNING SUMMARY
+----------------------------------------------------------------------
+Hands observed:         200
+Final confidence:       100%
+Opponent classified as: Maniac ( loose aggressive)
+Est. VPIP:              49.0%
+Est. PFR:               47.0%
+Est. Aggression Factor: 4.01
+Est. Range tightness:   0.54 (top_frac)
+Est. Fold-to-raise:     0.0%
+Est. C-bet freq:        37.0%
+
+  Parameter drift (base → final adapted):
+    bluff_freq:              0.050 → 0.010
+    call_edge:               0.020 → 0.000
+    value_raise_threshold:   0.700 → 0.700
+    check_raise_threshold:   0.620 → 0.570
+    value_raise_frac:        0.450 → 0.450
+
+======================================================================
+
+Testing vs aggressive opponent...
+  Hand 100/200 | Profit: +38,883 | Confidence: 100% | Reads as: Maniac ( loose aggressive)
+  Hand 200/200 | Profit: +169,781 | Confidence: 100% | Reads as: Maniac ( loose aggressive)
+
+======================================================================
+BOT BENCHMARK REPORT vs AGGRESSIVE OPPONENT
+======================================================================
+
+Sample Size: 200 hands requested, 200 hands completed
+
+                            PROFITABILITY
+----------------------------------------------------------------------
+Total Profit/Loss: +169,581 chips
+Win Rate: 38.5%
+BB/100: +847.90
+ROI: +1695.8%
+Profit per Hand: +847.9 chips
+
+                             HAND RESULTS
+----------------------------------------------------------------------
+Wins:   77 (38.5%)
+Losses: 120 (60.0%)
+Ties:   3 (1.5%)
+
+                           VARIANCE METRICS
+----------------------------------------------------------------------
+Std Deviation: +3333.7 chips
+95% CI: [+385.9, +1309.9] chips/hand
+
+                          SHOWDOWN ANALYSIS
+----------------------------------------------------------------------
+Showdowns:        140 (70.0%)
+Should-have-won:  77 (55.0%)
+Should-have-lost: 60 (42.9%)
+Should-have-tied: 3 (2.1%)
+
+                            FOLD ANALYSIS
+----------------------------------------------------------------------
+Bot folds: 77 (38.5%)
+Correct folds (EV): 77 (100.0%)
+Folded winner:      0 (0.0%)
+
+                      ADAPTIVE LEARNING SUMMARY
+----------------------------------------------------------------------
+Hands observed:         200
+Final confidence:       100%
+Opponent classified as: Maniac ( loose aggressive)
+Est. VPIP:              64.0%
+Est. PFR:               62.5%
+Est. Aggression Factor: 10.28
+Est. Range tightness:   0.70 (top_frac)
+Est. Fold-to-raise:     0.0%
+Est. C-bet freq:        57.8%
+
+  Parameter drift (base → final adapted):
+    bluff_freq:              0.050 → 0.010
+    call_edge:               0.020 → 0.000
+    value_raise_threshold:   0.700 → 0.700
+    check_raise_threshold:   0.620 → 0.570
+    value_raise_frac:        0.450 → 0.450
+
+======================================================================
+
+
+Process finished with exit code 0

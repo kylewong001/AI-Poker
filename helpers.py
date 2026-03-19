@@ -412,6 +412,7 @@ def estimate_equity_vs_range(
             ties += 1
 
     return (wins + 0.5 * ties) / trials
+<<<<<<< HEAD
 
 
 RANK_ORDER = "23456789TJQKA"
@@ -453,3 +454,5 @@ def board_texture_description(board_codes):
     else:
         return "Dry board"
     
+=======
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7

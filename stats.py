@@ -1,8 +1,26 @@
 from dataclasses import dataclass, field
+<<<<<<< HEAD
+=======
+import copy
+from typing import Optional
+
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
 import statistics
 
 
 @dataclass
+<<<<<<< HEAD
+=======
+class Checkpoint:
+    """Snapshot of performance at a point in time during a simulation."""
+    hand_num: int
+    cumulative_profit: int
+    bb_per_100: float
+    confidence: float = 0.0  # only meaningful for adaptive runs
+
+
+@dataclass
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
 class FoldInfo:
     """Information captured when bot folds."""
     folded: bool
@@ -38,6 +56,7 @@ class OpponentProfile:
     def fold_to_raise_freq(self, street: str = "postflop") -> float:
         """Frequency opponent folds to raises. street: 'preflop' or 'postflop'."""
         if street == "preflop":
+<<<<<<< HEAD
             total = self.fold_to_raise_preflop + self.folds_to_raise_preflop
         else:
             total = self.fold_to_raise_postflop + self.folds_to_raise_postflop
@@ -50,6 +69,14 @@ class OpponentProfile:
         else:
             folds = self.folds_to_raise_postflop
         
+=======
+            total = self.fold_to_raise_preflop   # opportunities (times facing a raise)
+            folds = self.folds_to_raise_preflop  # subset that folded
+        else:
+            total = self.fold_to_raise_postflop
+            folds = self.folds_to_raise_postflop
+
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
         return folds / total if total > 0 else 0.5
     
     def print_summary(self):
@@ -87,6 +114,12 @@ class GameStats:
     initial_buy_in: int = 10000  # Starting stack
     bb: int = 100  # Big blind size
 
+<<<<<<< HEAD
+=======
+    # Checkpoint snapshots recorded every N hands during simulation
+    checkpoints: list = field(default_factory=list)
+
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
     def calculate_bb_per_100(self) -> float:
         """Calculate win rate in big blinds per 100 hands."""
         if self.hands == 0:

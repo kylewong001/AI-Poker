@@ -1,4 +1,13 @@
 # AI-Poker
+<<<<<<< HEAD
+=======
+CSC 480 - Artificial Intelligence | Cal Poly San Luis Obispo
+
+Kyle Wong, Hoikin Lam, Arturo Renteria, Miguel Coronado, Josh Cavender
+
+Instructor: Rodrigo Canaan
+
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
 Objective:
 
 Implement an AI bot that is capable of playing Texas Hold 'Em poker at a high level. The bot should make optimal moves based on a number of metrics.
@@ -11,7 +20,39 @@ Goals:
 
 -Implement decision making algorithms for bots to make optimal decisions
 
+<<<<<<< HEAD
 To run this code ensure you have installed PokerKit (pip install PokerKit)
+=======
+Installation:
+
+Requires Python 3.11+. Install the one dependency:
+```
+pip install pokerkit
+```
+
+Running the Project:
+
+**Play interactively (you vs. the adaptive bot):**
+```
+python Poker.py
+```
+Starts a heads-up No Limit Texas Hold 'Em session with 10,000 chip stacks, 50/100 blinds. The bot adapts its strategy in real time based on your play.
+
+**Run the adaptive vs. static benchmark:**
+```
+python run_benchmark_suite.py
+```
+Simulates 2000 hands per opponent type (tight, balanced, loose, aggressive) and compares the adaptive bot against a non-adaptive baseline. Results are printed to the console and saved to a timestamped file (e.g. `benchmark_results_20260314_120000.txt`).
+
+To change the number of hands or checkpoint interval, edit the parameters in `run_benchmark_suite.py`:
+```python
+run_adaptive_comparison(
+    num_hands=2000,        # hands per opponent type
+    checkpoint_interval=200,  # how often to record BB/100 snapshots
+    verbose=False,         # set True for hand-by-hand output
+)
+```
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
 
 
 Sources:
@@ -118,5 +159,67 @@ Std deviation: ±87.3 chips
 
 These metrics enable objective evaluation of bot improvements over time.
 
+<<<<<<< HEAD
 
 
+=======
+==========================================================
+(3/4 - 3/14)
+
+Bot Logic:
+Adaptive opponent modeling has been implemented, allowing the bot to update its strategy in real time based on observed opponent behavior across hands.
+
+Opponent Profiling:
+The bot now builds an `EnhancedOpponentProfile` that tracks detailed opponent tendencies each hand:
+- **VPIP / PFR**: Voluntarily put in preflop / preflop raise frequency, tracking how often the opponent enters pots and raises
+- **Aggression Factor (AF)**: `(bets + raises) / calls` computed separately per street (flop, turn, river)
+- **Fold-to-Raise**: Tracked independently for preflop and postflop, revealing whether an opponent folds to pressure before or after the board is dealt
+- **C-bet Frequency**: How often the opponent continuation bets the flop after raising preflop
+- **Check-Raise Frequency**: How often the opponent check-raises, used to shrink bet sizing to avoid inflating pots
+
+Bayesian Confidence Blending:
+All estimates use a Bayesian-style prior blend that ramps from neutral priors toward observed values as sample size grows:
+- Confidence starts at 0 and reaches 1.0 after 200 observed hands, preventing early noisy data from locking in unreliable estimates
+- Each derived stat (VPIP, PFR, AF, fold rates) is blended as: `(1 - confidence) * prior + confidence * observed`
+
+Opponent Classification:
+Each hand, the bot classifies the opponent into one of four types using postflop fold-to-raise as the primary discriminator:
+- **TAG (Tight Aggressive)**: Postflop FTR > 90% — plays few hands but raises aggressively
+- **Balanced**: Postflop FTR 25–90% — standard mix of calls and folds
+- **Maniac (Loose Aggressive)**: Postflop FTR < 25%, AF > 2 — wide range, rarely folds
+- **Calling Station**: Postflop FTR < 25%, AF ≤ 2 — wide range, passively calls everything
+
+Parameter Adaptation:
+Based on the classification, the bot adjusts its `BotParams` each hand:
+- **vs TAG**: Increases bluff frequency and lowers bluff range threshold to exploit their high fold rate
+- **vs Maniac**: Reduces bluffing (they rarely fold), gates thin value bets and check-raises behind a minimum fold rate to avoid inflating pots with no fold equity
+- **vs Calling Station**: Maximizes thin value betting, eliminates bluffing entirely
+- **vs Balanced**: Scales bluff frequency proportionally to observed postflop fold rate
+
+Bluff EV Correction:
+The fold probability used in bluff EV calculations now blends the model estimate with the opponent's observed postflop fold-to-raise rate. This corrects a systematic underestimation where the model predicted ~12% fold probability for tight players whose actual fold rate was ~97%, causing the EV filter to block profitable bluffs.
+
+Improvements:
+The bot now exploits opponent tendencies in real time rather than using fixed parameters for every opponent type. Against a tight folder it bluffs more aggressively; against a calling station it value bets thinner and never bluffs. Benchmarks show the adaptive bot consistently outperforms the static baseline against tight and loose opponents across 2000+ hand samples.
+
+Benchmark Suite:
+A full adaptive vs. non-adaptive benchmark suite (`run_benchmark_suite.py`) runs both versions head-to-head across all four opponent types, producing a learning curve at configurable checkpoints and a final BB/100 comparison table. Results are saved to a timestamped file for tracking progress across iterations.
+
+Example Output:
+```
+==================================================================================
+                       ADAPTIVE vs NON-ADAPTIVE COMPARISON                        
+                            (2000 hands per opponent)                             
+==================================================================================
+
+                              FINAL RESULTS SUMMARY                               
+----------------------------------------------------------------------------------
+Opponent       Adaptive BB/100  Static BB/100    Delta   Confidence Reads As
+----------------------------------------------------------------------------------
+tight                   +47.23         +41.94    +5.29        100%  TAG (Tight Aggressive)
+balanced               +201.44         +90.52  +110.91        100%  Balanced (Aggressive)
+loose                  +905.78        +875.03   +30.75        100%  Maniac (Loose Aggressive)
+aggressive            +1104.88       +1005.23   +99.66        100%  Maniac (Loose Aggressive)
+----------------------------------------------------------------------------------
+```
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7

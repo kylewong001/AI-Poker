@@ -25,6 +25,17 @@ def record_opponent_aggressive_action(opponent_profile: OpponentProfile, street_
     opponent_profile.total_aggressive_actions += 1
 
 
+<<<<<<< HEAD
+=======
+def record_opponent_faced_raise(opponent_profile: OpponentProfile, street_num: int):
+    """Record that opponent faced a raise from the bot."""
+    if street_num == 0:
+        opponent_profile.raises_faced_preflop += 1
+    else:
+        opponent_profile.raises_faced_postflop += 1
+
+
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
 def record_opponent_passive_action(opponent_profile: OpponentProfile):
     """Record that opponent made a passive action (call)."""
     opponent_profile.total_passive_actions += 1
@@ -35,10 +46,15 @@ def record_opponent_fold_to_raise(opponent_profile: OpponentProfile, street_num:
     opponent_profile.total_folds += 1
     if street_num == 0:
         opponent_profile.folds_to_raise_preflop += 1
+<<<<<<< HEAD
         opponent_profile.fold_to_raise_preflop += 1
     else:
         opponent_profile.folds_to_raise_postflop += 1
         opponent_profile.fold_to_raise_postflop += 1
+=======
+    else:
+        opponent_profile.folds_to_raise_postflop += 1
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
 
 
 def record_showdown_hand(opponent_profile: OpponentProfile, hole_codes: list, result: str):
@@ -55,7 +71,12 @@ def play_one_hand(
     min_bet: int = 100,
     bot_params: BotParams = BotParams(),
     opponent_profile: OpponentProfile | None = None,
+<<<<<<< HEAD
 ) -> tuple[tuple[int, int], int, list, list, list, FoldInfo]:
+=======
+    action_observer=None,
+):
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
 
     if opponent_profile is None:
         opponent_profile = OpponentProfile()
@@ -106,27 +127,71 @@ def play_one_hand(
             print(_stacks_str(state))
 
 
+<<<<<<< HEAD
         actor = getattr(state, "actor_index", None)
         if actor is None:
             continue
 
+=======
+        actor = getattr(state,"actor_index",None)
+        if actor is None:
+            continue
+
+        cca = _get_call_amount(state)
+        pot = int(getattr(state,"total_pot_amount",0) or 0)
+
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
         if actor == 0:
             print("\n=============================================================================")
             print("\nYour turn.")
             print("Legal:", _legal_actions_str(state))
             cmd = input("Action (fold/check/raise <amt>/a): ").strip().lower()
+<<<<<<< HEAD
 
             if cmd == "f" and state.can_fold():
                 state.fold()
                 print("You fold.")
+=======
+            if action_observer is not None:
+                raise_to = None
+                if cmd.startswith("r"):
+                    parts = cmd.split()
+                    if len(parts) == 2:
+                        try:
+                            raise_to = int(parts[1])
+                        except ValueError:
+                            pass
+                action_observer.record_action(
+                    action=cmd[0] if cmd else "c",
+                    street=state.street_index or 0,
+                    call_amount=cca,
+                    raise_to=raise_to,
+                    pot=pot,
+                    facing_raise=cca > 0,
+                )
+            if cmd == "f" and state.can_fold():
+                state.fold()
+                print("You fold.")
+                # Track opponent fold
+                record_opponent_fold_to_raise(opponent_profile, state.street_index)
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
             elif cmd == "c" and state.can_check_or_call():
                 cca = _get_call_amount(state)
                 state.check_or_call()
 
                 if cca == 0:
                     print("You check.")
+<<<<<<< HEAD
                 else:
                     print(f"You call {cca}.")
+=======
+                    # Track opponent check (passive action)
+                    record_opponent_passive_action(opponent_profile)
+                else:
+                    print(f"You call {cca}.")
+                    # Track opponent call (passive action)
+                    record_opponent_passive_action(opponent_profile)
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
 
             elif cmd.startswith("r"):
                 parts = cmd.split()
@@ -141,6 +206,11 @@ def play_one_hand(
                 if state.can_complete_bet_or_raise_to(amt):
                     state.complete_bet_or_raise_to(amt)
                     print(f"You raise to {amt}.")
+<<<<<<< HEAD
+=======
+                    # Track opponent raise (aggressive action)
+                    record_opponent_aggressive_action(opponent_profile, state.street_index)
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
                 else:
                     min_to = getattr(state, "min_completion_betting_or_raising_to_amount", None)
                     max_to = getattr(state, "max_completion_betting_or_raising_to_amount", None)
@@ -153,6 +223,11 @@ def play_one_hand(
                 if state.can_complete_bet_or_raise_to(max_to):
                     state.complete_bet_or_raise_to(max_to)
                     print(f"You go all-in to {max_to}.")
+<<<<<<< HEAD
+=======
+                    # Track opponent all-in (aggressive action)
+                    record_opponent_aggressive_action(opponent_profile, state.street_index)
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
                 else:
                     print("All-in not legal here.")
             else:
@@ -162,7 +237,11 @@ def play_one_hand(
    
 
         else:
+<<<<<<< HEAD
             act, amt = choose_bot_action(state, bot_params)
+=======
+            act, amt = choose_bot_action(state, bot_params, opponent_profile)
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
             if act == "f" and state.can_fold():
                 # capture fold context BEFORE folding
                 bot_fold_pot = int(getattr(state, "total_pot_amount", 0) or 0)
@@ -189,12 +268,22 @@ def play_one_hand(
                 if max_to is not None and state.can_complete_bet_or_raise_to(max_to):
                     state.complete_bet_or_raise_to(max_to)
                     print(f"\nBot goes all-in to {max_to}.")
+<<<<<<< HEAD
+=======
+                    # Track that opponent faced a raise
+                    record_opponent_faced_raise(opponent_profile, state.street_index)
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
                 else:
                     state.check_or_call()
                     print("\nBot calls (fallback).")
             elif act == "r" and amt is not None and state.can_complete_bet_or_raise_to(amt):
                 state.complete_bet_or_raise_to(amt)
                 print(f"\nBot raises to {amt}.")
+<<<<<<< HEAD
+=======
+                # Track that opponent faced a raise
+                record_opponent_faced_raise(opponent_profile, state.street_index)
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
             else:
                 if state.can_check_or_call():
                     state.check_or_call()
@@ -226,14 +315,23 @@ def play_one_hand(
     player_codes = _hole_codes_for_player(state, 0)
     bot_codes = _hole_codes_for_player(state, 1)
 
+<<<<<<< HEAD
     return (ending_stacks, bot_delta, board_codes_end, player_codes, bot_codes, fold_info)
 
 def main() -> None:
+=======
+    return ending_stacks, bot_delta, board_codes_end, player_codes, bot_codes, fold_info
+
+def main() -> None:
+
+    from adapt import EnhancedOpponentProfile, ActionObserver, adapt_params_to_opponent
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
     print("PokerKit: Heads-Up No Limit Hold 'Em — You vs Bot")
 
     stacks = (10000, 10000)
     sb, bb, min_bet = 50, 100, 100
 
+<<<<<<< HEAD
     bot_params = BotParams()
     stats = GameStats()
     opponent_profile = OpponentProfile()
@@ -244,11 +342,42 @@ def main() -> None:
             stacks, sb=sb, bb=bb, min_bet=min_bet, bot_params=bot_params, opponent_profile=opponent_profile) 
 
         # ---- update stats ----
+=======
+    base_bot_params = BotParams()
+    stats = GameStats()
+    opponent_profile =EnhancedOpponentProfile()
+
+    while True:
+        # ── 1. Generate adapted params from what we've learned so far ──────
+        adapted_params = adapt_params_to_opponent(base_bot_params, opponent_profile)
+
+        # ── 2. Create a fresh observer for this hand ───────────────────────
+        observer = ActionObserver(opponent_profile)
+        observer.hand_start()
+
+        # ── 3. Play the hand ───────────────────────────────────────────────
+        (stacks, bot_delta, board_codes,
+         player_codes, bot_codes, fold_info) = play_one_hand(
+            stacks,
+            sb=sb, bb=bb, min_bet=min_bet,
+            bot_params=adapted_params,  # ← adapted, not base
+            opponent_profile=opponent_profile,
+            action_observer=observer,  # ← observer records opponent actions
+        )
+
+        # ── 4. Close out observer (triggers derived stat update) ───────────
+        observer.hand_end()
+
+        # ── 5. Update game stats (unchanged from your original) ────────────
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
         stats.hands += 1
         stats.total_profit += bot_delta
         stats.hand_profits.append(bot_delta)
 
+<<<<<<< HEAD
         # Actual winner (by chip delta)
+=======
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
         if bot_delta > 0:
             stats.bot_wins += 1
         elif bot_delta < 0:
@@ -256,7 +385,10 @@ def main() -> None:
         else:
             stats.ties += 1
 
+<<<<<<< HEAD
         # "Should have won" (by cards), only if board completed
+=======
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
         if len(board_codes) == 5:
             stats.showdowns += 1
             should = determine_card_winner(player_codes, bot_codes, board_codes)
@@ -269,6 +401,7 @@ def main() -> None:
             else:
                 stats.should_tie += 1
                 record_showdown_hand(opponent_profile, player_codes, "tie")
+<<<<<<< HEAD
         
         if fold_info.folded:
             stats.bot_folds += 1
@@ -299,6 +432,36 @@ def main() -> None:
         stats.print_summary()
         opponent_profile.print_summary()
 
+=======
+
+        if fold_info.folded:
+            stats.bot_folds += 1
+            required_eq = (
+                fold_info.call_amount / (fold_info.pot + fold_info.call_amount)
+                if (fold_info.pot + fold_info.call_amount) > 0 else 1.0
+            )
+            eq_vs_actual = estimate_equity_vs_known_hand(
+                hero_hole_codes=bot_codes,
+                villain_hole_codes=player_codes,
+                board_codes=fold_info.board_codes,
+                trials=2500,
+            )
+            if eq_vs_actual < required_eq + adapted_params.call_edge:
+                stats.bot_correct_folds_ev += 1
+
+            rng = random.Random(stats.hands * 99991 + 17)
+            runout_winner = winner_on_one_random_runout(
+                player_codes, bot_codes, fold_info.board_codes, rng
+            )
+            if runout_winner == "bot":
+                stats.bot_folded_winner_runout += 1
+
+        # ── 6. Print summaries ─────────────────────────────────────────────
+        stats.print_summary()
+        opponent_profile.print_summary()  # now shows adaptive metrics too
+
+        # ── 7. Early-exit conditions ───────────────────────────────────────
+>>>>>>> 0a41cfd96eb5cf44af49c7be4538ea564034a9c7
         if stacks[0] <= 0:
             print("\nYou lost it all. Game over.")
             stats.print_summary()
